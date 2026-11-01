@@ -1,5 +1,8 @@
 package com.example.adblocker; // change to match your package
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -59,7 +62,16 @@ public final class NotificationHelper {
 
     /** Push an updated count to the existing notification without rebuilding it. */
     public static void update(Context ctx, int blocked) {
-        ctx.getSystemService(NotificationManager.class)
-                .notify(NOTIFICATION_ID, build(ctx, blocked, false));
+        // Foreground VPN can run when notification permission is declined,
+        // but explicit notify() calls require this permission on API 33+.
+        if (Build.VERSION.SDK_INT >= 33
+                && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) return;
+        try {
+            ctx.getSystemService(NotificationManager.class)
+                    .notify(NOTIFICATION_ID, build(ctx, blocked, false));
+        } catch (SecurityException ignored) {
+            // Permission can be revoked while protection is running.
+        }
     }
 }

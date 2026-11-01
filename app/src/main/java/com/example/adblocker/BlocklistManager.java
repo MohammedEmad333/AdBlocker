@@ -41,6 +41,8 @@ public class BlocklistManager {
     private static final String ADAWAY_CACHE = "blocklist-adaway.txt";
     private static final long MAX_CACHE_AGE_MS = 24L * 60 * 60 * 1000; // daily refresh
 
+    private static final long MAX_BLOCKLIST_BYTES = 16L * 1024 * 1024;
+
     // Hostnames that appear in hosts files but must never be blocked.
     private static final Set<String> IGNORED = new HashSet<>(Arrays.asList(
             "localhost", "localhost.localdomain", "local", "broadcasthost",
@@ -104,7 +106,7 @@ public class BlocklistManager {
             }
         }
 
-        if (cache.exists()) {
+        if (cache.exists() && cache.length() <= MAX_BLOCKLIST_BYTES) {
             try (InputStream in = new FileInputStream(cache)) {
                 Set<String> parsed = parse(in);
                 if (!parsed.isEmpty()) {
@@ -128,11 +130,17 @@ public class BlocklistManager {
             if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 throw new IOException("Blocklist HTTP status: " + conn.getResponseCode());
             }
+            if (conn.getContentLengthLong() > MAX_BLOCKLIST_BYTES)
+                throw new IOException("Blocklist exceeds safe download limit");
             try (InputStream in = conn.getInputStream();
                  FileOutputStream out = new FileOutputStream(tmp)) {
                 byte[] buf = new byte[8192];
                 int n;
+                long downloaded = 0;
                 while ((n = in.read(buf)) != -1) {
+                    downloaded += n;
+                    if (downloaded > MAX_BLOCKLIST_BYTES)
+                        throw new IOException("Blocklist exceeds safe download limit");
                     out.write(buf, 0, n);
                 }
             }

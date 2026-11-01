@@ -96,3 +96,8 @@ locally without a checked-in Gradle wrapper, install Gradle 8.6 and use
    settings and navigation, including RTL and long text.
 5. With large DNS bursts, confirm the activity screen stays responsive and
    the event history never exceeds 512 entries.
+
+
+## Release readiness (phase 4)
+
+CI now runs Android lint, unit tests, APK ZIP/metadata verification and SHA-256 generation. Downloaded blocklists are capped at 16 MiB; app backup and cleartext application traffic are disabled. A separate manual release workflow requires owner-controlled signing secrets and checks APK signatures. See [Release guide](RELEASE.md) and [Device matrix](DEVICE_TEST_MATRIX.md). No real-device verification is implied by CI success.

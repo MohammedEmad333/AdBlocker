@@ -3,6 +3,8 @@ package com.example.adblocker;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.content.IntentFilter;
 import android.net.VpnService;
 import android.os.Build;
@@ -20,6 +22,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import java.util.List;
 
@@ -85,11 +88,9 @@ public final class MainActivity extends AppCompatActivity {
         events.addAction(AdBlockVpnService.ACTION_VPN_STARTED);
         events.addAction(AdBlockVpnService.ACTION_VPN_STOPPED);
         events.addAction(AdBlockVpnService.ACTION_STATS_UPDATE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusReceiver, events, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(statusReceiver, events);
-        }
+        // Apply non-exported visibility consistently on all supported versions.
+        ContextCompat.registerReceiver(this, statusReceiver, events,
+                ContextCompat.RECEIVER_NOT_EXPORTED);
         ui.removeCallbacks(tick);
         render();
         ui.postDelayed(tick, 1500);
@@ -108,6 +109,12 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void startVpnService() {
+        // Request notification permission only after the user starts protection.
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+        }
         Intent start = new Intent(this, AdBlockVpnService.class)
                 .setAction(AdBlockVpnService.ACTION_START);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(start);
