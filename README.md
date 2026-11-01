@@ -1,98 +1,32 @@
 # AdBlocker
 
-Android DNS-based ad blocker using VpnService. No root required.
-Blocks ads and trackers by intercepting DNS queries and returning
-NXDOMAIN for ~130,000 domains (StevenBlack list, cached daily).
+AdBlocker is a DNS-based Android ad and tracker blocker using Java and Android VpnService. It does not require root.
 
----
+## Features
 
-## Option 1 — Open in Android Studio
+- Start/stop DNS protection and view a live session dashboard.
+- Search or filter up to 512 recent DNS events, stored in RAM only.
+- Choose StevenBlack or optional AdAway sources and maintain custom allow/block rules.
+- Exclude selected apps from VPN (requires VPN restart).
+- Arabic and English interfaces.
 
-1. **File → Open** → select this `AdBlocker/` folder
-2. When prompted to download Gradle 8.6, click **OK**
-3. Wait for project sync (~1-2 min on first run)
-4. Connect your phone with USB debugging enabled
-5. **Run → Run 'app'** → accept the VPN consent dialog on your phone
+## Development
 
----
+The project builds with Java 17, Gradle 8.6, Android SDK 34. Install Gradle 8.6 or open it in Android Studio; this repository currently does not commit a Gradle wrapper JAR or launcher scripts.
 
-## Option 2 — Build with Claude Code (on your laptop)
+Run:
 
-Open a terminal in this folder and run:
+    gradle --no-daemon lintDebug testDebugUnitTest assembleDebug
+    adb install -r app/build/outputs/apk/debug/app-debug.apk
 
-```
-claude
-```
+The Android CI workflow builds a debug APK and SHA-256 checksum and uploads lint/test reports on every PR and push to main. Download the artifact from the GitHub Actions run.
 
-Then type:
+## Signed release
 
-```
-Run ./gradlew assembleDebug. If gradlew is missing, run
-`gradle wrapper` first or generate it. Tell me the APK path
-when done.
-```
+The separate **Signed Release APK (manual)** workflow is available only on main. It requires an owner-provided keystore and four GitHub Actions secrets, verifies the APK signature, and uploads the signed APK and SHA-256 checksum. It never publishes an external release automatically. No signing key or password is stored in this repo.
 
-Install the resulting APK:
+See [Release guide](docs/RELEASE.md) for setup, and [Device testing](docs/DEVICE_TEST_MATRIX.md) for acceptance criteria.
 
-```
-adb install app/build/outputs/apk/debug/app-debug.apk
-```
+## Technical limitations
 
----
-
-## Option 3 — Build via GitHub Actions (cloud, no laptop needed)
-
-1. Push this folder to a new GitHub repo
-2. Create `.github/workflows/build.yml` with:
-
-```yaml
-name: Build APK
-on: [push]
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - uses: gradle/actions/setup-gradle@v3
-      - run: ./gradlew assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-```
-
-3. Every push builds the APK — download it from the **Actions** tab on GitHub
-
----
-
-## Notes
-
-- First VPN start downloads the blocklist (~3 MB) — needs internet once.
-- Apps using DNS-over-HTTPS (YouTube, Chromium) bypass DNS filtering.
-- Not on Google Play by policy. Sideload the APK.
-
-
-## Stability and tests
-
-See [VPN and DNS stability](docs/VPN_STABILITY.md) for current limitations,
-manual device checks and CI unit tests. The current workflow uses Gradle 8.6
-installed by GitHub Actions; no `gradlew` script is committed yet.
-
-
-## Filter settings
-
-The app now provides in-app custom allow/block rules, an optional AdAway hosts
-source, manual/daily list refresh and per-app VPN exclusions (applied on VPN
-restart). See [VPN stability and configuration](docs/VPN_STABILITY.md).
-
-
-## Live dashboard and activity (phase 3)
-
-View current-session blocking metrics and search/filter a bounded local DNS
-event history from the home screen. No activity records are persisted on disk.
-Choose Arabic, English or system language in Settings. See the
-[acceptance checklist](docs/VPN_STABILITY.md) for device testing.
+This implementation filters supported DNS-over-UDP queries via a local VPN. DNS-over-TCP, DNS-over-HTTPS, DNS-over-TLS, and some IPv6 traffic are not filtered. It is not a complete network firewall. Successful APK compilation does not establish real-world VPN reliability.
