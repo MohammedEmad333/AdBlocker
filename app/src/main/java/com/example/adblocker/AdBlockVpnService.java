@@ -6,6 +6,7 @@ import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
@@ -13,10 +14,13 @@ import android.util.Log;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +51,8 @@ public class AdBlockVpnService extends VpnService {
 
     private static final String TUN_ADDRESS  = "10.0.0.2";
     private static final String FAKE_DNS     = "10.0.0.1";
+    private static final String TUN_ADDRESS_V6 = "fd00::2";
+    private static final String FAKE_DNS_V6 = "fd00::1";
     /** Tried only if the network hands us nothing usable. */
     private static final String[] FALLBACK_DNS = {"8.8.8.8", "1.1.1.1", "9.9.9.9", "208.67.222.222"};
 
@@ -103,6 +109,7 @@ public class AdBlockVpnService extends VpnService {
     private final AtomicBoolean refreshingResolver = new AtomicBoolean(false);
     private volatile InetAddress upstream;    // the resolver that actually answers
     private volatile Network     underlying;  // the real (non-VPN) network
+    private volatile ConnectivityManager.NetworkCallback networkCallback;
     // -------------------------------------------------------------------------
     // Lifecycle
     // -------------------------------------------------------------------------
@@ -187,9 +194,13 @@ public class AdBlockVpnService extends VpnService {
             if (underlying != null) builder.setUnderlyingNetworks(new Network[]{underlying});
             builder.setSession("AdBlocker")
                     .setMtu(1500)
+                    .setBlocking(true)  // read() sleeps rather than spinning at 100% CPU
                     .addAddress(TUN_ADDRESS, 32)
                     .addDnsServer(FAKE_DNS)
-                    .addRoute(FAKE_DNS, 32);
+                    .addRoute(FAKE_DNS, 32)
+                    .addAddress(TUN_ADDRESS_V6, 128)
+                    .addDnsServer(FAKE_DNS_V6)
+                    .addRoute(FAKE_DNS_V6, 128);
 
             // Android applies this per-app policy when establishing the tunnel.
             // Invalid or uninstalled packages must not prevent all protection.
@@ -221,6 +232,7 @@ public class AdBlockVpnService extends VpnService {
             if (stopRequested) return;
             isRunning = true;
             isStarting = false;
+            watchNetworks();
             // Check every 30 minutes; per-source cache freshness enforces daily updates.
             filterScheduler = Executors.newSingleThreadScheduledExecutor();
             filterScheduler.scheduleWithFixedDelay(() -> requestFilterRefresh(false),
@@ -240,6 +252,7 @@ public class AdBlockVpnService extends VpnService {
             }
         } finally {
             stopRequested = true;
+            unwatchNetworks();
             if (dnsPool != null) dnsPool.shutdownNow();
             if (filterScheduler != null) filterScheduler.shutdownNow();
             closeTun();
@@ -258,65 +271,60 @@ public class AdBlockVpnService extends VpnService {
     // Packet handling
     // -------------------------------------------------------------------------
 
-    private void handlePacket(byte[] packet, int length, FileOutputStream out) {
+    private void handlePacket(byte[] packet, int bytesRead, FileOutputStream out) {
         try {
-            if (stopRequested || length < 28) return;
-            if (((packet[0] & 0xF0) >>> 4) != 4) return; // IPv4 only
-            int ipHeaderLen = (packet[0] & 0x0F) * 4;
-            if (ipHeaderLen < 20 || ipHeaderLen > length - 8) return;
-            int ipTotalLen = ((packet[2] & 0xFF) << 8) | (packet[3] & 0xFF);
-            if (ipTotalLen < ipHeaderLen + 8 || ipTotalLen > length) return;
-            // Fragmented UDP is not reassembled here; never parse a fragment as DNS.
-            if ((packet[6] & 0x3F) != 0 || packet[7] != 0) return;
-            if ((packet[9] & 0xFF) != 17) return;
-            // The TUN routes only our virtual resolver. Reject unrelated traffic.
-            if ((packet[16] & 0xFF) != 10 || packet[17] != 0
-                    || packet[18] != 0 || packet[19] != 1) return;
-
-            int udp = ipHeaderLen;
-            int dstPort = ((packet[udp + 2] & 0xFF) << 8) | (packet[udp + 3] & 0xFF);
-            if (dstPort != 53) return;
-            int udpLen = ((packet[udp + 4] & 0xFF) << 8) | (packet[udp + 5] & 0xFF);
-            if (udpLen < 8 + 17 || udpLen > ipTotalLen - ipHeaderLen) return;
-            int dnsStart = udp + 8;
-            int dnsLen = udpLen - 8;
-            if ((packet[dnsStart + 2] & 0xF8) != 0) return; // query, standard opcode
-            if (DnsPacket.questionEnd(packet, dnsStart, dnsLen) < 0) return;
-
-            String domain = DnsPacket.extractDomain(packet, dnsStart, dnsLen);
+            if (stopRequested) return;
+            DnsTunnelPacket.Query query = DnsTunnelPacket.parse(packet, bytesRead);
+            if (query == null) return;
+            String domain = DnsPacket.extractDomain(packet, query.dnsOffset, query.dnsLength);
             if (domain == null) return;
             queriesSeen.incrementAndGet();
             lastDomain = domain;
 
-            boolean block = isBlocked(domain);
-            note(domain, block);
-            if (block) {
-                int n = blockedCount.incrementAndGet();
-                if (n % 20 == 0) NotificationHelper.update(this, n);
-                byte[] dnsResp = DnsPacket.buildNxDomain(packet, dnsStart, dnsLen);
-                byte[] reply = DnsPacket.buildResponsePacket(packet, ipHeaderLen, dnsResp);
-                synchronized (out) { if (!stopRequested) out.write(reply); }
-
+            boolean blocked = isBlocked(domain);
+            note(domain, blocked);
+            if (blocked) {
+                int count = blockedCount.incrementAndGet();
+                if (count % 20 == 0) NotificationHelper.update(this, count);
+                byte[] response = DnsPacket.buildNxDomain(packet, query.dnsOffset, query.dnsLength);
+                byte[] reply = DnsTunnelPacket.wrapReply(packet, query, response);
+                writeReply(out, reply);
                 Intent update = new Intent(ACTION_STATS_UPDATE).setPackage(getPackageName());
-                update.putExtra(EXTRA_BLOCKED, n);
+                update.putExtra(EXTRA_BLOCKED, count);
                 sendBroadcast(update);
-            } else {
-                byte[] copy = Arrays.copyOf(packet, ipTotalLen); // read loop reuses packet
-                forwarded.incrementAndGet();
-                try {
-                    dnsPool.execute(() -> forwardAndReply(copy, ipHeaderLen,
-                            dnsStart, dnsLen, out));
-                } catch (RejectedExecutionException saturated) {
-                    errors.incrementAndGet();
-                    byte[] failure = DnsPacket.buildServFail(packet, dnsStart, dnsLen);
-                    byte[] reply = DnsPacket.buildResponsePacket(packet, ipHeaderLen, failure);
-                    synchronized (out) { if (!stopRequested) out.write(reply); }
-                }
+                return;
+            }
+
+            // The TUN input buffer is reused immediately on the next read.
+            byte[] copy = Arrays.copyOf(packet, query.packetLength);
+            if (dnsPool == null) return;
+            forwarded.incrementAndGet();
+            try {
+                dnsPool.execute(() -> forwardAndReply(copy, query, out));
+            } catch (RejectedExecutionException saturated) {
+                errors.incrementAndGet();
+                sendServFail(copy, query, out);
             }
         } catch (Exception e) {
             errors.incrementAndGet();
             lastError = String.valueOf(e.getMessage());
-            Log.w(TAG, "Dropped packet: " + e.getMessage());
+            Log.w(TAG, "Dropped DNS packet: " + e.getMessage());
+        }
+    }
+
+    private void writeReply(FileOutputStream out, byte[] bytes) throws IOException {
+        synchronized (out) {
+            if (!stopRequested) out.write(bytes);
+        }
+    }
+
+    private void sendServFail(byte[] original, DnsTunnelPacket.Query query,
+                              FileOutputStream out) {
+        try {
+            byte[] dns = DnsPacket.buildServFail(original, query.dnsOffset, query.dnsLength);
+            writeReply(out, DnsTunnelPacket.wrapReply(original, query, dns));
+        } catch (IOException e) {
+            if (!stopRequested) Log.w(TAG, "Cannot reply SERVFAIL", e);
         }
     }
 
@@ -367,53 +375,74 @@ public class AdBlockVpnService extends VpnService {
      * A private socket per query makes that impossible, and the transaction-ID
      * check below rejects any stray packet regardless.
      */
-    private void forwardAndReply(byte[] packet, int ipHeaderLen,
-                                 int dnsStart, int dnsLen, FileOutputStream out) {
+    private void forwardAndReply(byte[] packet, DnsTunnelPacket.Query parsed,
+                                 FileOutputStream out) {
         DatagramSocket sock = null;
         try {
             if (stopRequested) return;
             InetAddress resolver = upstream;
             Network network = underlying;
-            if (resolver == null) return;
+            if (resolver == null) {
+                errors.incrementAndGet();
+                sendServFail(packet, parsed, out);
+                requestResolverRefresh(null);
+                return;
+            }
             sock = new DatagramSocket();
             bindOutside(sock, network);
-            sock.connect(resolver, 53); // only accept replies from chosen resolver
+            sock.connect(resolver, 53);
             sock.setSoTimeout(DNS_TIMEOUT_MS);
 
-            byte[] query = new byte[dnsLen];
-            System.arraycopy(packet, dnsStart, query, 0, dnsLen);
-            sock.send(new DatagramPacket(query, dnsLen));
-
+            byte[] query = Arrays.copyOfRange(packet, parsed.dnsOffset,
+                    parsed.dnsOffset + parsed.dnsLength);
+            sock.send(new DatagramPacket(query, query.length));
             byte[] buf = new byte[4096];
             DatagramPacket resp = new DatagramPacket(buf, buf.length);
             sock.receive(resp);
-
-            // Bytes 0-1 are the transaction ID; it must match what we asked.
-            if (resp.getLength() < 12 || buf[0] != query[0] || buf[1] != query[1]) {
-                Log.w(TAG, "Transaction ID mismatch, dropped");
-                return;
+            if (resp.getLength() < 12 || !DnsTcpWire.matchesQuery(query, buf)) {
+                throw new IOException("Invalid DNS transaction or response");
             }
 
-            if (stopRequested || (buf[2] & 0x80) == 0) return;
-            byte[] dnsResp = Arrays.copyOf(buf, resp.getLength());
-            byte[] reply = DnsPacket.buildResponsePacket(packet, ipHeaderLen, dnsResp);
-            synchronized (out) { if (!stopRequested) out.write(reply); }
+            byte[] dnsResponse = Arrays.copyOf(buf, resp.getLength());
+            // UDP TC=1 indicates truncation. Retry over protected TCP/53 to
+            // obtain the complete response, still replying via UDP to the app.
+            if ((dnsResponse[2] & 0x02) != 0) {
+                byte[] full = retryTruncatedOverTcp(query, resolver, network);
+                if (full != null) dnsResponse = full;
+            }
+            writeReply(out, DnsTunnelPacket.wrapReply(packet, parsed, dnsResponse));
             answered.incrementAndGet();
             consecutiveFailures.set(0);
         } catch (SocketTimeoutException e) {
-            // Stay silent -- the app's own resolver retries. Normal on a
-            // congested link, and it no longer poisons anything.
             timeouts.incrementAndGet();
             recordUpstreamFailure();
+            sendServFail(packet, parsed, out);
         } catch (Exception e) {
             if (!stopRequested) {
                 errors.incrementAndGet();
                 lastError = String.valueOf(e.getMessage());
                 recordUpstreamFailure();
-                Log.w(TAG, "Forward failed: " + e.getMessage());
+                sendServFail(packet, parsed, out);
+                Log.w(TAG, "DNS relay failed: " + e.getMessage());
             }
         } finally {
             if (sock != null) sock.close();
+        }
+    }
+
+    /** Upstream TCP fallback, not a TCP proxy for apps sending DNS/TCP. */
+    private byte[] retryTruncatedOverTcp(byte[] query, InetAddress server, Network net) {
+        try (Socket socket = new Socket()) {
+            protect(socket);
+            if (net != null) net.bindSocket(socket);
+            socket.connect(new InetSocketAddress(server, 53), DNS_TIMEOUT_MS);
+            socket.setSoTimeout(DNS_TIMEOUT_MS);
+            DnsTcpWire.writeQuery(socket.getOutputStream(), query);
+            byte[] response = DnsTcpWire.readResponse(socket.getInputStream());
+            return DnsTcpWire.matchesQuery(query, response) ? response : null;
+        } catch (Exception e) {
+            Log.w(TAG, "DNS TCP fallback unavailable: " + e.getMessage());
+            return null;
         }
     }
 
@@ -433,19 +462,83 @@ public class AdBlockVpnService extends VpnService {
         }
     }
 
-    /** Re-probe available DNS servers after repeated upstream failures. */
+    /** Track underlying network changes without rebuilding or blocking the TUN loop. */
+    private void watchNetworks() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm == null) return;
+        ConnectivityManager.NetworkCallback callback =
+                new ConnectivityManager.NetworkCallback() {
+            @Override public void onAvailable(Network network) {
+                requestResolverRefresh(network);
+            }
+            @Override public void onLost(Network network) {
+                if (network.equals(underlying)) requestResolverRefresh(null);
+            }
+            @Override public void onLinkPropertiesChanged(Network network, LinkProperties properties) {
+                if (network.equals(underlying)) requestResolverRefresh(network);
+            }
+        };
+        try {
+            NetworkRequest request = new NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build();
+            cm.registerNetworkCallback(request, callback);
+            networkCallback = callback;
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Network callbacks unavailable: " + e.getMessage());
+        }
+    }
+
+    private void unwatchNetworks() {
+        ConnectivityManager.NetworkCallback callback = networkCallback;
+        networkCallback = null;
+        if (callback == null) return;
+        try {
+            getSystemService(ConnectivityManager.class).unregisterNetworkCallback(callback);
+        } catch (RuntimeException ignored) {}
+    }
+
+    private boolean usableNetwork(Network candidate) {
+        if (candidate == null) return false;
+        try {
+            NetworkCapabilities capabilities = getSystemService(ConnectivityManager.class)
+                    .getNetworkCapabilities(candidate);
+            return capabilities != null
+                    && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                    && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     private void recordUpstreamFailure() {
-        if (stopRequested || consecutiveFailures.incrementAndGet() < 3
+        if (stopRequested || consecutiveFailures.incrementAndGet() < 3) return;
+        requestResolverRefresh(null);
+    }
+
+    /** One guarded worker: the callback never does synchronous network I/O. */
+    private void requestResolverRefresh(Network preferred) {
+        if (stopRequested || !isRunning
                 || !refreshingResolver.compareAndSet(false, true)) return;
         Thread recovery = new Thread(() -> {
             try {
-                Network candidateNetwork = pickUnderlying();
-                InetAddress candidateDns = pickUpstream(candidateNetwork);
-                if (!stopRequested && candidateDns != null) {
-                    underlying = candidateNetwork;
-                    upstream = candidateDns;
-                    upstreamInfo = candidateDns.getHostAddress();
+                Network candidate = usableNetwork(preferred) ? preferred : pickUnderlying();
+                InetAddress dns = candidate == null ? null : pickUpstream(candidate);
+                if (stopRequested) return;
+                if (dns != null) {
+                    underlying = candidate;
+                    upstream = dns;
+                    upstreamInfo = dns.getHostAddress();
                     consecutiveFailures.set(0);
+                    try {
+                        setUnderlyingNetworks(new Network[]{candidate});
+                    } catch (RuntimeException e) {
+                        Log.w(TAG, "Could not update underlying network", e);
+                    }
+                } else if (!usableNetwork(underlying)) {
+                    underlying = null;
+                    upstream = null;
+                    upstreamInfo = "waiting for network";
                 }
             } finally {
                 refreshingResolver.set(false);
@@ -459,12 +552,12 @@ public class AdBlockVpnService extends VpnService {
     private Network pickUnderlying() {
         try {
             ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+            Network active = cm.getActiveNetwork();
+            if (usableNetwork(active)) return active;
+            // Preserve the existing transport when it is still connected.
+            if (usableNetwork(underlying)) return underlying;
             for (Network n : cm.getAllNetworks()) {
-                NetworkCapabilities c = cm.getNetworkCapabilities(n);
-                if (c == null) continue;
-                if (c.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue;
-                if (!c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue;
-                return n;
+                if (usableNetwork(n)) return n;
             }
         } catch (Exception e) {
             Log.w(TAG, "pickUnderlying: " + e.getMessage());
@@ -489,7 +582,7 @@ public class AdBlockVpnService extends VpnService {
                 LinkProperties lp = cm.getLinkProperties(net);
                 if (lp != null) {
                     for (InetAddress a : lp.getDnsServers()) {
-                        if (a instanceof Inet4Address && !candidates.contains(a)) candidates.add(a);
+                        if (!candidates.contains(a)) candidates.add(a);
                     }
                 }
             }
@@ -524,7 +617,8 @@ public class AdBlockVpnService extends VpnService {
             s.setSoTimeout(2500);
 
             byte[] q = DnsPacket.buildQuery("example.com", 0x4A21);
-            s.send(new DatagramPacket(q, q.length, server, 53));
+            s.connect(server, 53);
+            s.send(new DatagramPacket(q, q.length));
 
             byte[] buf = new byte[512];
             DatagramPacket r = new DatagramPacket(buf, buf.length);
