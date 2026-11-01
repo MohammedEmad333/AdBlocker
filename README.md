@@ -29,7 +29,7 @@ See [Release guide](docs/RELEASE.md) for setup, and [Device testing](docs/DEVICE
 
 ## Technical limitations
 
-This implementation filters supported DNS-over-UDP queries via a local VPN. DNS-over-TCP, DNS-over-HTTPS, DNS-over-TLS, and some IPv6 traffic are not filtered. It is not a complete network firewall. Successful APK compilation does not establish real-world VPN reliability.
+This implementation filters supported DNS-over-UDP queries via a local VPN. DNS-over-TCP, DNS-over-HTTPS, DNS-over-TLS, and some advanced TCP use cases are not filtered. It is not a complete network firewall. Successful APK compilation does not establish real-world VPN reliability.
 
 ## Phase 5: DNS transport hardening
 
@@ -38,3 +38,12 @@ synthetic VPN resolvers. Network callbacks help recover upstream DNS after
 connection changes. Truncated UDP answers can be retried over TCP to the
 upstream DNS server; client-originated TCP, DoH and DoT remain unsupported.
 See docs/VPN_STABILITY.md for scope and device validation.
+
+
+## DNS/TCP support
+
+DNS questions sent by applications over plaintext TCP/53 to the VPN's virtual
+IPv4/IPv6 DNS servers are now handled by a **bounded DNS-specific TCP endpoint**.
+It supports a single in-flight DNS query per session, segmented replies and
+limited retransmission. Pipelining, out-of-order TCP segment reassembly, DoH,
+DoT and general TCP connections are not supported. Device validation is pending.

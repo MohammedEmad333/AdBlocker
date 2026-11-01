@@ -15,9 +15,10 @@ UDP queries over the underlying network.
 - Cancellation is checked between download, resolver probe, and TUN setup.
 - Downloads are validated before replacing the cached blocklist; stale cache
   remains available offline.
-- DNS-over-HTTPS, DNS-over-TLS and app-originated DNS-over-TCP are not intercepted.
-  Upstream TCP fallback can resolve truncated UDP replies, but is not TCP
-  interception for applications. Some apps bypass the blocker.
+- DNS-over-HTTPS and DNS-over-TLS are not intercepted.
+  App-originated TCP/53 to the synthetic VPN resolvers is handled by a
+  purpose-built bounded DNS/TCP stream endpoint. This is not a general TCP stack
+  and does not intercept encrypted DNS. Some apps bypass the blocker.
 - This is not a full network VPN, a comprehensive tracker firewall, or a
   guarantee that all advertisements will disappear.
 
@@ -112,7 +113,7 @@ CI now runs Android lint, unit tests, APK ZIP/metadata verification and SHA-256 
 - React to network changes using callbacks and reprobe upstream DNS on a
   background worker. Update the VPN underlying networks on success.
 - Retry truncated upstream DNS/UDP replies using TCP/53, with bounded response
-  size and timeout. App-originated TCP DNS is NOT yet intercepted.
+  size and timeout. This was the upstream-only TCP implementation in phase 5.
 - Reject oversized replies beyond the 1500-byte tunnel MTU with SERVFAIL.
 - Unit tests cover IPv6 validation, responses, malformed packets, random data
   and TCP framing; physical-device tests are still needed.
@@ -120,3 +121,33 @@ CI now runs Android lint, unit tests, APK ZIP/metadata verification and SHA-256 
 Test on dual-stack Wi-Fi and cellular, verify A/AAAA queries and blocking
 decisions, switch between networks, and observe restart/stop reliability.
 Do not claim encrypted DNS or complete TCP interception.
+
+
+## Sixth batch: TCP/53 DNS traffic sent by apps
+
+- The VPN now recognizes TCP packets to virtual IPv4 and IPv6 DNS resolvers.
+  A strict packet parser checks destination, TCP port, segment bounds, fragment
+  headers and TCP checksum, and generates valid IPv4/IPv6 TCP replies.
+- A bounded per-connection state machine performs SYN/ACK, collects one
+  length-prefixed DNS question, acknowledges bytes and sends blocked NXDOMAIN
+  or allowed upstream DNS replies over TCP.
+- Allowed DNS/TCP queries are resolved over a protected TCP socket first; if
+  the upstream refuses TCP, the service falls back to UDP only when the reply
+  is complete (not truncated). This is a DNS transport fallback, not HTTPS.
+- A maximum of 64 sessions, 4096 DNS query bytes and one outstanding request
+  per TCP connection are supported. Response frames use conservative 512-byte payloads (below the
+  IPv4 TCP default MSS),, sent one at a time after ACK, and retransmitted with a 3-retry
+  maximum. Inactive connections expire in 30 seconds.
+- DNS/TCP pipelining, out-of-order segment reassembly, advanced TCP options and
+  general TCP proxying are **not** supported; unsupported streams are reset.
+- Sessions and queued responses are cleared when the VPN stops. DNS activity
+  history is still private to memory and reset with the session.
+
+### On-device acceptance checklist
+
+Test unencrypted DNS/TCP with a client that explicitly selects TCP port 53
+against the local VPN resolver, on both IPv4 and IPv6. Confirm allow/block
+precedence, split TCP DNS frames, long replies spanning multiple TCP segments,
+disconnect/reconnect, stop while a lookup is pending, and network switching.
+Monitor stability and memory under repeated connection attempts. CI tests do
+not replace packet captures or Android device tests.
