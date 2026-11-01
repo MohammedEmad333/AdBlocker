@@ -3,6 +3,8 @@ package com.example.adblocker;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.content.IntentFilter;
 import android.net.VpnService;
 import android.os.Build;
@@ -108,6 +110,12 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void startVpnService() {
+        // Request notification permission only after the user starts protection.
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+        }
         Intent start = new Intent(this, AdBlockVpnService.class)
                 .setAction(AdBlockVpnService.ACTION_START);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(start);
