@@ -102,15 +102,16 @@ public class DnsTcpTunnelTest {
         DnsTcpTunnel.Request req = s.query("example.com", false);
         byte[] large = Arrays.copyOf(DnsPacket.buildNxDomain(req.dns, 0, req.dns.length), 2300);
         DnsTcpTunnel.Result r = s.engine.complete(req, large, s.now);
-        assertEquals(1000, r.replies.get(0).length - 40);
-        s.ack = DnsTcpTunnelPacket.plus(s.ack, 1000);
-        r = s.send(DnsTcpTunnelPacket.ACK, new byte[0]);
-        assertEquals(1000, r.replies.get(0).length - 40);
-        s.ack = DnsTcpTunnelPacket.plus(s.ack, 1000);
-        r = s.send(DnsTcpTunnelPacket.ACK, new byte[0]);
-        assertEquals(302, r.replies.get(0).length - 40);
-        s.ack = DnsTcpTunnelPacket.plus(s.ack, 302);
-        assertTrue(s.send(DnsTcpTunnelPacket.ACK, new byte[0]).replies.isEmpty());
+        int remaining = large.length + 2; // 2-byte DNS/TCP length prefix
+        while (remaining > 0) {
+            assertEquals(1, r.replies.size());
+            int piece = r.replies.get(0).length - 40;
+            assertEquals(Math.min(512, remaining), piece);
+            remaining -= piece;
+            s.ack = DnsTcpTunnelPacket.plus(s.ack, piece);
+            r = s.send(DnsTcpTunnelPacket.ACK, new byte[0]);
+        }
+        assertTrue(r.replies.isEmpty());
     }
 
     @Test public void flowCapacityTimeoutAndRetransmission() {

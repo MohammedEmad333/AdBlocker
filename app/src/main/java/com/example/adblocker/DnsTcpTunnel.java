@@ -18,7 +18,7 @@ import java.util.Map;
 public final class DnsTcpTunnel {
     static final int MAX_FLOWS = 64;
     static final int MAX_QUERY_BYTES = 4096;
-    static final int RESPONSE_SEGMENT_BYTES = 1000;
+    static final int RESPONSE_SEGMENT_BYTES = 512;
     static final long IDLE_MILLIS = 30_000;
     static final long RETRANSMIT_MILLIS = 2_000;
     static final int MAX_RETRIES = 3;

@@ -135,8 +135,8 @@ Do not claim encrypted DNS or complete TCP interception.
   the upstream refuses TCP, the service falls back to UDP only when the reply
   is complete (not truncated). This is a DNS transport fallback, not HTTPS.
 - A maximum of 64 sessions, 4096 DNS query bytes and one outstanding request
-  per TCP connection are supported. Response frames are segmented (1000-byte
-  payloads), sent one at a time after ACK, and retransmitted with a 3-retry
+  per TCP connection are supported. Response frames use conservative 512-byte payloads (below the
+  IPv4 TCP default MSS),, sent one at a time after ACK, and retransmitted with a 3-retry
   maximum. Inactive connections expire in 30 seconds.
 - DNS/TCP pipelining, out-of-order segment reassembly, advanced TCP options and
   general TCP proxying are **not** supported; unsupported streams are reset.
