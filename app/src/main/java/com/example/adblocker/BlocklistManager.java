@@ -13,6 +13,9 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
@@ -88,27 +91,39 @@ public class BlocklistManager {
     private void download(File cache) throws IOException {
         Log.i(TAG, "Downloading blocklist...");
         File tmp = new File(cache.getPath() + ".tmp");
-
         HttpURLConnection conn = (HttpURLConnection) new URL(LIST_URL).openConnection();
         conn.setConnectTimeout(10_000);
         conn.setReadTimeout(15_000);
-        try (InputStream in = conn.getInputStream();
-             FileOutputStream out = new FileOutputStream(tmp)) {
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                out.write(buf, 0, n);
+        try {
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new IOException("Blocklist HTTP status: " + conn.getResponseCode());
             }
+            try (InputStream in = conn.getInputStream();
+                 FileOutputStream out = new FileOutputStream(tmp)) {
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                }
+            }
+            // Never overwrite a working cache with a short/invalid HTTP response.
+            if (tmp.length() < 1024) throw new IOException("Blocklist download too small");
+            try (InputStream check = new FileInputStream(tmp)) {
+                if (parse(check).size() < 1000) {
+                    throw new IOException("Blocklist download did not contain enough domains");
+                }
+            }
+            try {
+                Files.move(tmp.toPath(), cache.toPath(),
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp.toPath(), cache.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            Log.i(TAG, "Blocklist saved (" + cache.length() / 1024 + " KB)");
         } finally {
             conn.disconnect();
+            if (tmp.exists() && !tmp.delete()) Log.w(TAG, "Could not delete temporary blocklist");
         }
-
-        // Only replace the old cache once the new file has arrived completely,
-        // so a broken download can never destroy a working list.
-        if (!tmp.renameTo(cache)) {
-            throw new IOException("Could not move temp file into place");
-        }
-        Log.i(TAG, "Blocklist saved (" + cache.length() / 1024 + " KB)");
     }
 
     /**

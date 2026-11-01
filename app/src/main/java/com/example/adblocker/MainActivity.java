@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
         toggleButton = findViewById(R.id.toggleButton);
 
         toggleButton.setOnClickListener(v -> {
-            if (AdBlockVpnService.isRunning) stopVpnService();
+            if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting) stopVpnService();
             else requestConsent();
         });
     }
@@ -112,8 +112,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startVpnService() {
-        startService(new Intent(this, AdBlockVpnService.class)
-                .setAction(AdBlockVpnService.ACTION_START));
+        Intent start = new Intent(this, AdBlockVpnService.class)
+                .setAction(AdBlockVpnService.ACTION_START);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(start);
+        else startService(start);
         statusText.setText("STARTING");
         upstreamText.setText("finding a resolver that answers");
         toggleButton.setEnabled(false);
@@ -130,20 +132,21 @@ public class MainActivity extends AppCompatActivity {
 
     private void render() {
         boolean on = AdBlockVpnService.isRunning;
+        boolean starting = AdBlockVpnService.isStarting;
 
-        statusText.setText(on ? "BLOCKING" : "OFF");
+        statusText.setText(on ? "BLOCKING" : starting ? "STARTING" : "OFF");
         statusText.setTextColor(on ? cText : cMuted);
 
         upstreamText.setText(on
                 ? "resolving via " + AdBlockVpnService.upstreamInfo
-                : "tap below to start");
+                : starting ? "preparing DNS protection" : "tap below to start");
 
         stoppedCount.setText(String.valueOf(AdBlockVpnService.blockedCount.get()));
         seenCount.setText(String.valueOf(AdBlockVpnService.queriesSeen.get()));
 
         // Loud when there's something to do, quiet once it's working.
         toggleButton.setEnabled(true);
-        toggleButton.setText(on ? "Stop" : "Start blocking");
+        toggleButton.setText(on ? "Stop" : starting ? "Cancel" : "Start blocking");
         toggleButton.setBackgroundResource(on ? R.drawable.pill_outline : R.drawable.pill_filled);
         toggleButton.setTextColor(on ? cMuted : cInk);
 

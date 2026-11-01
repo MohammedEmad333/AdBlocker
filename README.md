@@ -74,3 +74,10 @@ jobs:
 - First VPN start downloads the blocklist (~3 MB) — needs internet once.
 - Apps using DNS-over-HTTPS (YouTube, Chromium) bypass DNS filtering.
 - Not on Google Play by policy. Sideload the APK.
+
+
+## Stability and tests
+
+See [VPN and DNS stability](docs/VPN_STABILITY.md) for current limitations,
+manual device checks and CI unit tests. The current workflow uses Gradle 8.6
+installed by GitHub Actions; no `gradlew` script is committed yet.
