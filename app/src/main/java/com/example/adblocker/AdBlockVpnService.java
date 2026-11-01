@@ -18,11 +18,9 @@ import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.Collections;
 import java.util.concurrent.Executors;
@@ -69,26 +67,17 @@ public class AdBlockVpnService extends VpnService {
     public static final AtomicInteger errors      = new AtomicInteger(0);
     public static volatile String upstreamInfo = "-";
 
-    /** One domain we made a decision about. */
-    public static final class Event {
-        public final String  domain;
-        public final boolean blocked;
-        Event(String d, boolean b) { domain = d; blocked = b; }
-    }
-
-    private static final int MAX_RECENT = 16;
-    private static final ArrayDeque<Event> RECENT = new ArrayDeque<>();
+    /** Ephemeral and bounded DNS activity, cleared whenever a VPN session starts. */
+    public static final DnsHistory HISTORY = new DnsHistory(512);
 
     private static void note(String domain, boolean blocked) {
-        synchronized (RECENT) {
-            RECENT.addFirst(new Event(domain, blocked));
-            while (RECENT.size() > MAX_RECENT) RECENT.removeLast();
-        }
+        HISTORY.add(domain, blocked, System.currentTimeMillis());
     }
 
-    /** Newest first. Copied, so the UI never iterates a live deque. */
-    public static List<Event> recent() {
-        synchronized (RECENT) { return new ArrayList<>(RECENT); }
+    private static volatile int remoteDomainCount;
+
+    public static int downloadedDomainCount() {
+        return remoteDomainCount;
     }
 
     public static volatile String lastDomain = "-";
@@ -98,7 +87,8 @@ public class AdBlockVpnService extends VpnService {
         blockedCount.set(0); packetsRead.set(0); queriesSeen.set(0);
         forwarded.set(0); answered.set(0); timeouts.set(0); errors.set(0);
         lastDomain = "-"; lastError = "-";
-        synchronized (RECENT) { RECENT.clear(); }
+        HISTORY.clear();
+        remoteDomainCount = 0;
     }
 
     private ParcelFileDescriptor tunInterface;
@@ -172,6 +162,7 @@ public class AdBlockVpnService extends VpnService {
     private void runVpn() {
         try {
             filterPolicy = readPolicy(false);
+            remoteDomainCount = filterPolicy.downloadedDomainCount();
             if (stopRequested) return;
             Log.i(TAG, "Blocklist ready: " + filterPolicy.downloadedDomainCount()
                     + " downloaded domains");
@@ -351,6 +342,7 @@ public class AdBlockVpnService extends VpnService {
                     DomainRules.Policy updated = readPolicy(force);
                     if (!stopRequested) {
                         filterPolicy = updated;
+                        remoteDomainCount = updated.downloadedDomainCount();
                         Log.i(TAG, "Filter policy refreshed: " + updated.downloadedDomainCount()
                                 + " remote domains");
                     }

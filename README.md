@@ -88,3 +88,11 @@ installed by GitHub Actions; no `gradlew` script is committed yet.
 The app now provides in-app custom allow/block rules, an optional AdAway hosts
 source, manual/daily list refresh and per-app VPN exclusions (applied on VPN
 restart). See [VPN stability and configuration](docs/VPN_STABILITY.md).
+
+
+## Live dashboard and activity (phase 3)
+
+View current-session blocking metrics and search/filter a bounded local DNS
+event history from the home screen. No activity records are persisted on disk.
+Choose Arabic, English or system language in Settings. See the
+[acceptance checklist](docs/VPN_STABILITY.md) for device testing.
