@@ -31,11 +31,15 @@ public class BlocklistManager {
     private static final String TAG = "AdBlockList";
 
     // StevenBlack's unified hosts list: ~130k ad/tracking/malware domains.
-    private static final String LIST_URL =
+    // Only curated HTTPS hosts sources; optional AdAway defaults off.
+    private static final String STEVENBLACK_URL =
             "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts";
+    private static final String ADAWAY_URL =
+            "https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt";
 
-    private static final String CACHE_FILE = "blocklist.txt";
-    private static final long MAX_CACHE_AGE_MS = 24L * 60 * 60 * 1000; // refresh daily
+    private static final String STEVENBLACK_CACHE = "blocklist.txt"; // migrate old installs in place
+    private static final String ADAWAY_CACHE = "blocklist-adaway.txt";
+    private static final long MAX_CACHE_AGE_MS = 24L * 60 * 60 * 1000; // daily refresh
 
     // Hostnames that appear in hosts files but must never be blocked.
     private static final Set<String> IGNORED = new HashSet<>(Arrays.asList(
@@ -58,16 +62,45 @@ public class BlocklistManager {
      *   nothing at all   -> tiny built-in list so blocking still works
      */
     public Set<String> load() {
-        File cache = new File(context.getFilesDir(), CACHE_FILE);
+        return load(false);
+    }
 
+    /** Refresh only expired sources unless forced. An offline cache is retained. */
+    public Set<String> load(boolean force) {
+        FilterSettings settings = new FilterSettings(context);
+        Set<String> combined = new HashSet<>(200_000);
+        boolean anyEnabled = false;
+
+        if (settings.sourceEnabled(FilterSettings.STEVENBLACK)) {
+            anyEnabled = true;
+            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, settings));
+        }
+        if (settings.sourceEnabled(FilterSettings.ADAWAY)) {
+            anyEnabled = true;
+            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, settings));
+        }
+
+        // An explicit choice to disable all remote sources must not be overridden.
+        if (!anyEnabled) return combined;
+        if (!combined.isEmpty()) return combined;
+
+        Log.w(TAG, "No remote lists available: using the small built-in safety list");
+        return new HashSet<>(Arrays.asList(
+                "doubleclick.net", "googlesyndication.com", "google-analytics.com"));
+    }
+
+    private Set<String> loadSource(String sourceUrl, String fileName, boolean force,
+                                   FilterSettings settings) {
+        File cache = new File(context.getFilesDir(), fileName);
         boolean fresh = cache.exists()
+                && cache.length() > 1024
                 && System.currentTimeMillis() - cache.lastModified() < MAX_CACHE_AGE_MS;
-
-        if (!fresh) {
+        if (force || !fresh) {
             try {
-                download(cache);
+                download(sourceUrl, cache);
+                settings.markDownloaded();
             } catch (IOException e) {
-                Log.w(TAG, "Download failed: " + e.getMessage());
+                Log.w(TAG, "Failed to update " + fileName + ": " + e.getMessage());
             }
         }
 
@@ -75,23 +108,20 @@ public class BlocklistManager {
             try (InputStream in = new FileInputStream(cache)) {
                 Set<String> parsed = parse(in);
                 if (!parsed.isEmpty()) {
-                    Log.i(TAG, "Loaded " + parsed.size() + " domains from cache");
+                    Log.i(TAG, "Loaded " + parsed.size() + " domains from " + fileName);
                     return parsed;
                 }
             } catch (IOException e) {
-                Log.w(TAG, "Cache read failed: " + e.getMessage());
+                Log.w(TAG, "Cache read failed for " + fileName + ": " + e.getMessage());
             }
         }
-
-        Log.w(TAG, "Falling back to built-in mini list");
-        return new HashSet<>(Arrays.asList(
-                "doubleclick.net", "googlesyndication.com", "google-analytics.com"));
+        return new HashSet<>();
     }
 
-    private void download(File cache) throws IOException {
-        Log.i(TAG, "Downloading blocklist...");
+    private void download(String sourceUrl, File cache) throws IOException {
+        Log.i(TAG, "Downloading source " + sourceUrl);
         File tmp = new File(cache.getPath() + ".tmp");
-        HttpURLConnection conn = (HttpURLConnection) new URL(LIST_URL).openConnection();
+        HttpURLConnection conn = (HttpURLConnection) new URL(sourceUrl).openConnection();
         conn.setConnectTimeout(10_000);
         conn.setReadTimeout(15_000);
         try {
@@ -106,7 +136,6 @@ public class BlocklistManager {
                     out.write(buf, 0, n);
                 }
             }
-            // Never overwrite a working cache with a short/invalid HTTP response.
             if (tmp.length() < 1024) throw new IOException("Blocklist download too small");
             try (InputStream check = new FileInputStream(tmp)) {
                 if (parse(check).size() < 1000) {
@@ -152,10 +181,8 @@ public class BlocklistManager {
             int first = tokens.length > 1 ? 1 : 0;
 
             for (int i = first; i < tokens.length; i++) {
-                String d = tokens[i].toLowerCase(Locale.ROOT);
-                if (d.indexOf('.') == -1 || IGNORED.contains(d) || looksLikeIp(d)) {
-                    continue;
-                }
+                String d = DomainRules.normalize(tokens[i]);
+                if (d == null || IGNORED.contains(d) || looksLikeIp(d)) continue;
                 domains.add(d);
             }
         }
