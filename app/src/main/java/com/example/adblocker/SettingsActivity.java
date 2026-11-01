@@ -227,7 +227,7 @@ public final class SettingsActivity extends Activity {
     private Button button(String title) {
         Button b = new Button(this);
         b.setText(title);
-        b.setTextAllCaps(false);
+        b.setAllCaps(false);
         return b;
     }
 
