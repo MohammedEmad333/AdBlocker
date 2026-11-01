@@ -9,64 +9,99 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingLeft="28dp"
-        android:paddingRight="28dp"
-        android:paddingTop="36dp"
-        android:paddingBottom="32dp">
+        android:paddingStart="22dp"
+        android:paddingEnd="22dp"
+        android:paddingTop="26dp"
+        android:paddingBottom="36dp">
 
-        <!-- ============ eyebrow ============ -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <View
-                android:layout_width="3dp"
-                android:layout_height="13dp"
-                android:background="@drawable/eyebrow_bar" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="9dp"
-                android:text="AD BLOCKER"
-                android:textColor="@color/muted"
-                android:textSize="12sp"
-                android:letterSpacing="0.22"
-                android:fontFamily="sans-serif-condensed"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- ============ status ============ -->
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:text="OFF"
-            android:textColor="@color/text"
-            android:textSize="44sp"
-            android:letterSpacing="-0.02"
-            android:fontFamily="sans-serif-black" />
-
-        <TextView
-            android:id="@+id/upstreamText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text=""
-            android:textColor="@color/muted"
-            android:textSize="13sp"
-            android:fontFamily="monospace" />
-
-        <!-- ============ counts ============ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
-            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/app_name"
+                android:textColor="@color/text"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/settingsButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:background="@drawable/pill_outline"
+                android:contentDescription="@string/settings_label"
+                android:text="@string/settings_label"
+                android:textAllCaps="false"
+                android:textColor="@color/text" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
             android:background="@drawable/panel"
+            android:orientation="vertical"
+            android:padding="22dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/protection_label"
+                android:textColor="@color/amber"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="9dp"
+                android:text="@string/protection_off"
+                android:textColor="@color/text"
+                android:textSize="35sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/upstreamText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/protection_prompt"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/toggleButton"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginTop="20dp"
+                android:background="@drawable/pill_filled"
+                android:text="@string/start_protection"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="@string/session_summary"
+            android:textColor="@color/text"
+            android:textSize="19sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/panel"
+            android:orientation="horizontal"
             android:padding="18dp">
 
             <LinearLayout
@@ -77,30 +112,19 @@
 
                 <TextView
                     android:id="@+id/stoppedCount"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="0"
                     android:textColor="@color/amber"
-                    android:textSize="30sp"
-                    android:fontFamily="monospace" />
-
+                    android:textSize="29sp"
+                    android:textStyle="bold" />
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="STOPPED"
+                    android:text="@string/stat_blocked"
                     android:textColor="@color/muted"
-                    android:textSize="10sp"
-                    android:letterSpacing="0.18"
-                    android:fontFamily="sans-serif-condensed" />
+                    android:textSize="12sp" />
             </LinearLayout>
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="match_parent"
-                android:layout_marginLeft="8dp"
-                android:layout_marginRight="20dp"
-                android:background="@color/line" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -109,100 +133,126 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/seenCount"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/allowedCount"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="0"
                     android:textColor="@color/text"
-                    android:textSize="30sp"
-                    android:fontFamily="monospace" />
-
+                    android:textSize="29sp"
+                    android:textStyle="bold" />
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="LOOKED UP"
+                    android:text="@string/stat_allowed"
                     android:textColor="@color/muted"
-                    android:textSize="10sp"
-                    android:letterSpacing="0.18"
-                    android:fontFamily="sans-serif-condensed" />
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/seenCount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textColor="@color/text"
+                    android:textSize="29sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/stat_lookups"
+                    android:textColor="@color/muted"
+                    android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- ============ the live feed: this app's whole point ============ -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <View
-                android:layout_width="3dp"
-                android:layout_height="11dp"
-                android:background="@drawable/eyebrow_bar" />
-
+            android:layout_marginTop="12dp"
+            android:background="@drawable/panel"
+            android:orientation="vertical"
+            android:padding="18dp">
             <TextView
-                android:layout_width="wrap_content"
+                android:id="@+id/blockedRate"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="9dp"
-                android:text="LIVE"
+                android:text="@string/block_rate_placeholder"
+                android:textColor="@color/text"
+                android:textSize="17sp" />
+            <ProgressBar
+                android:id="@+id/blockingProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="8dp"
+                android:layout_marginTop="12dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="@color/amber"
+                android:progressBackgroundTint="@color/line"/>
+            <TextView
+                android:id="@+id/domainsLoaded"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/domains_loaded_placeholder"
                 android:textColor="@color/muted"
-                android:textSize="11sp"
-                android:letterSpacing="0.22"
-                android:fontFamily="sans-serif-condensed"
-                android:textStyle="bold" />
+                android:textSize="12sp" />
+            <TextView
+                android:id="@+id/healthText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/health_placeholder"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
         </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="@string/recent_activity"
+            android:textColor="@color/text"
+            android:textSize="19sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/streamText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:minHeight="200dp"
-            android:text=""
-            android:textSize="12sp"
-            android:lineSpacingExtra="5dp"
-            android:fontFamily="monospace" />
+            android:background="@drawable/panel"
+            android:padding="18dp"
+            android:minHeight="110dp"
+            android:text="@string/no_recent_requests"
+            android:textColor="@color/muted"
+            android:textDirection="ltr"
+            android:textSize="13sp"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="5dp" />
 
-        <!-- ============ health, quiet but there ============ -->
+        <Button
+            android:id="@+id/openLogButton"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/pill_outline"
+            android:text="@string/open_activity_log"
+            android:textAllCaps="false"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+
         <TextView
-            android:id="@+id/healthText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:paddingTop="12dp"
-            android:text=""
+            android:layout_marginTop="16dp"
+            android:text="@string/privacy_note"
             android:textColor="@color/muted"
-            android:textSize="10sp"
-            android:fontFamily="monospace" />
-
-        <!-- ============ per-domain rules, sources and exclusions ============ -->
-        <Button
-            android:id="@+id/settingsButton"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/pill_outline"
-            android:text="Filter settings"
-            android:textColor="@color/text"
-            android:textSize="15sp"
-            android:textAllCaps="false" />
-
-        <!-- ============ one control ============ -->
-        <Button
-            android:id="@+id/toggleButton"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="24dp"
-            android:background="@drawable/pill_filled"
-            android:text="Start blocking"
-            android:textColor="@color/ink"
-            android:textSize="15sp"
-            android:letterSpacing="0.02"
-            android:fontFamily="sans-serif-medium"
-            android:textAllCaps="false"
-            android:stateListAnimator="@null" />
-
+            android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>
