@@ -177,6 +177,18 @@
             android:textSize="10sp"
             android:fontFamily="monospace" />
 
+        <!-- ============ per-domain rules, sources and exclusions ============ -->
+        <Button
+            android:id="@+id/settingsButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/pill_outline"
+            android:text="Filter settings"
+            android:textColor="@color/text"
+            android:textSize="15sp"
+            android:textAllCaps="false" />
+
         <!-- ============ one control ============ -->
         <Button
             android:id="@+id/toggleButton"

@@ -72,6 +72,8 @@ public class MainActivity extends AppCompatActivity {
         streamText   = findViewById(R.id.streamText);
         healthText   = findViewById(R.id.healthText);
         toggleButton = findViewById(R.id.toggleButton);
+        findViewById(R.id.settingsButton).setOnClickListener(v ->
+                startActivity(new Intent(this, SettingsActivity.class)));
 
         toggleButton.setOnClickListener(v -> {
             if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting) stopVpnService();

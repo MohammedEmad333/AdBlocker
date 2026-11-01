@@ -81,3 +81,10 @@ jobs:
 See [VPN and DNS stability](docs/VPN_STABILITY.md) for current limitations,
 manual device checks and CI unit tests. The current workflow uses Gradle 8.6
 installed by GitHub Actions; no `gradlew` script is committed yet.
+
+
+## Filter settings
+
+The app now provides in-app custom allow/block rules, an optional AdAway hosts
+source, manual/daily list refresh and per-app VPN exclusions (applied on VPN
+restart). See [VPN stability and configuration](docs/VPN_STABILITY.md).

@@ -23,6 +23,14 @@
          but the permission declaration is still required by the OS. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- Let settings list apps with launchers without broad package visibility. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <!-- ================================================================== -->
     <!-- Application                                                          -->
     <!-- ================================================================== -->
@@ -33,6 +41,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
+        <activity android:name=".SettingsActivity" android:exported="false" />
 
         <!-- Main launcher activity -->
         <activity

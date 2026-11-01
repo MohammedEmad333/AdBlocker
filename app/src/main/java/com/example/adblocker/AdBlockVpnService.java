@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Collections;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -37,6 +40,8 @@ public class AdBlockVpnService extends VpnService {
 
     public static final String ACTION_START        = "com.example.adblocker.START";
     public static final String ACTION_STOP         = "com.example.adblocker.STOP";
+    public static final String ACTION_REFRESH      = "com.example.adblocker.REFRESH";
+    public static final String ACTION_REFRESH_FORCE = "com.example.adblocker.REFRESH_FORCE";
     public static final String ACTION_VPN_STARTED  = "com.example.adblocker.VPN_STARTED";
     public static final String ACTION_VPN_STOPPED  = "com.example.adblocker.VPN_STOPPED";
     public static final String ACTION_STATS_UPDATE = "com.example.adblocker.STATS_UPDATE";
@@ -96,28 +101,18 @@ public class AdBlockVpnService extends VpnService {
         synchronized (RECENT) { RECENT.clear(); }
     }
 
-    /**
-     * Domains that are never blocked, even if a blocklist contains them.
-     * Add anything here that a blocklist breaks -- parent matching applies,
-     * so "example.com" also allows "api.example.com".
-     */
-    private static final Set<String> ALLOWLIST = new HashSet<>();
-    static {
-        // Uncomment or add entries if a blocklist breaks an app you need.
-        // ALLOWLIST.add("app-measurement.com");   // Firebase Analytics
-        // ALLOWLIST.add("crashlytics.com");       // Firebase Crashlytics
-    }
-
     private ParcelFileDescriptor tunInterface;
     private volatile Thread      vpnThread;
     private volatile ThreadPoolExecutor dnsPool;
+    private volatile ScheduledExecutorService filterScheduler;
+    private final AtomicBoolean filterRefreshBusy = new AtomicBoolean(false);
+    private volatile DomainRules.Policy filterPolicy = new DomainRules.Policy(
+            Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
     private volatile boolean     stopRequested;
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
     private final AtomicBoolean refreshingResolver = new AtomicBoolean(false);
     private volatile InetAddress upstream;    // the resolver that actually answers
     private volatile Network     underlying;  // the real (non-VPN) network
-    private Set<String>          blocklist = new HashSet<>();
-
     // -------------------------------------------------------------------------
     // Lifecycle
     // -------------------------------------------------------------------------
@@ -130,10 +125,15 @@ public class AdBlockVpnService extends VpnService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+        String action = intent == null ? ACTION_START : intent.getAction();
+        if (ACTION_STOP.equals(action)) {
             stopVpn();
             stopSelf();
             return START_NOT_STICKY;
+        }
+        if (ACTION_REFRESH.equals(action) || ACTION_REFRESH_FORCE.equals(action)) {
+            requestFilterRefresh(ACTION_REFRESH_FORCE.equals(action));
+            return START_STICKY;
         }
         startFgCompat(NotificationHelper.build(this, 0, true));
         startVpn();
@@ -171,9 +171,10 @@ public class AdBlockVpnService extends VpnService {
 
     private void runVpn() {
         try {
-            blocklist = new BlocklistManager(this).load();
+            filterPolicy = readPolicy(false);
             if (stopRequested) return;
-            Log.i(TAG, "Blocklist ready: " + blocklist.size() + " domains");
+            Log.i(TAG, "Blocklist ready: " + filterPolicy.downloadedDomainCount()
+                    + " downloaded domains");
             NotificationHelper.update(this, 0);
 
             // Do this BEFORE establish(): with no tunnel up yet, these probes
@@ -199,6 +200,17 @@ public class AdBlockVpnService extends VpnService {
                     .addDnsServer(FAKE_DNS)
                     .addRoute(FAKE_DNS, 32);
 
+            // Android applies this per-app policy when establishing the tunnel.
+            // Invalid or uninstalled packages must not prevent all protection.
+            for (String excludedPackage : new FilterSettings(this).excludedPackages()) {
+                if (getPackageName().equals(excludedPackage)) continue;
+                try {
+                    builder.addDisallowedApplication(excludedPackage);
+                } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+                    Log.w(TAG, "Excluded package not installed: " + excludedPackage);
+                }
+            }
+
             tunInterface = builder.establish();
             if (stopRequested) return;
             if (tunInterface == null) {
@@ -218,6 +230,10 @@ public class AdBlockVpnService extends VpnService {
             if (stopRequested) return;
             isRunning = true;
             isStarting = false;
+            // Check every 30 minutes; per-source cache freshness enforces daily updates.
+            filterScheduler = Executors.newSingleThreadScheduledExecutor();
+            filterScheduler.scheduleWithFixedDelay(() -> requestFilterRefresh(false),
+                    30, 30, TimeUnit.MINUTES);
             broadcast(ACTION_VPN_STARTED);
 
             byte[] buf = new byte[32767];
@@ -234,6 +250,7 @@ public class AdBlockVpnService extends VpnService {
         } finally {
             stopRequested = true;
             if (dnsPool != null) dnsPool.shutdownNow();
+            if (filterScheduler != null) filterScheduler.shutdownNow();
             closeTun();
             isRunning = false;
             isStarting = false;
@@ -312,21 +329,40 @@ public class AdBlockVpnService extends VpnService {
         }
     }
 
-    /** Allowlist wins over the blocklist. Both match parent domains. */
     private boolean isBlocked(String domain) {
-        if (matches(ALLOWLIST, domain)) return false;
-        return matches(blocklist, domain);
+        return filterPolicy.shouldBlock(domain);
     }
 
-    /** True if the domain or any parent of it is in the set. */
-    private static boolean matches(Set<String> set, String domain) {
-        String d = domain;
-        while (d != null) {
-            if (set.contains(d)) return true;
-            int dot = d.indexOf('.');
-            d = (dot == -1) ? null : d.substring(dot + 1);
+    private DomainRules.Policy readPolicy(boolean forceDownload) {
+        FilterSettings settings = new FilterSettings(this);
+        Set<String> remote = new BlocklistManager(this).load(forceDownload);
+        return new DomainRules.Policy(settings.allowedDomains(),
+                settings.blockedDomains(), remote);
+    }
+
+    /** Serialize background updates and publish a single immutable policy snapshot. */
+    private void requestFilterRefresh(boolean force) {
+        ScheduledExecutorService scheduler = filterScheduler;
+        if (stopRequested || scheduler == null || scheduler.isShutdown()
+                || !filterRefreshBusy.compareAndSet(false, true)) return;
+        try {
+            scheduler.execute(() -> {
+                try {
+                    DomainRules.Policy updated = readPolicy(force);
+                    if (!stopRequested) {
+                        filterPolicy = updated;
+                        Log.i(TAG, "Filter policy refreshed: " + updated.downloadedDomainCount()
+                                + " remote domains");
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Filter refresh failed; keeping previous policy", e);
+                } finally {
+                    filterRefreshBusy.set(false);
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            filterRefreshBusy.set(false);
         }
-        return false;
     }
 
     /**
