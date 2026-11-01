@@ -101,6 +101,8 @@ public class AdBlockVpnService extends VpnService {
     private volatile Thread      vpnThread;
     private volatile ThreadPoolExecutor dnsPool;
     private volatile ScheduledExecutorService filterScheduler;
+    private volatile ScheduledExecutorService tcpScheduler;
+    private final DnsTcpTunnel tcpTunnel = new DnsTcpTunnel();
     private final AtomicBoolean filterRefreshBusy = new AtomicBoolean(false);
     private volatile DomainRules.Policy filterPolicy = new DomainRules.Policy(
             Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
@@ -162,6 +164,7 @@ public class AdBlockVpnService extends VpnService {
         isStarting = true;
         consecutiveFailures.set(0);
         resetStats();
+        tcpTunnel.clear();
         vpnThread = new Thread(this::runVpn, "AdBlockVpnThread");
         vpnThread.start();
     }
@@ -237,6 +240,15 @@ public class AdBlockVpnService extends VpnService {
             filterScheduler = Executors.newSingleThreadScheduledExecutor();
             filterScheduler.scheduleWithFixedDelay(() -> requestFilterRefresh(false),
                     30, 30, TimeUnit.MINUTES);
+            tcpScheduler = Executors.newSingleThreadScheduledExecutor();
+            tcpScheduler.scheduleWithFixedDelay(() -> {
+                if (stopRequested) return;
+                try {
+                    writeTcpPackets(out, tcpTunnel.tick(System.currentTimeMillis()));
+                } catch (IOException e) {
+                    if (!stopRequested) Log.w(TAG, "TCP response timer failed", e);
+                }
+            }, 1, 1, TimeUnit.SECONDS);
             broadcast(ACTION_VPN_STARTED);
 
             byte[] buf = new byte[32767];
@@ -255,6 +267,8 @@ public class AdBlockVpnService extends VpnService {
             unwatchNetworks();
             if (dnsPool != null) dnsPool.shutdownNow();
             if (filterScheduler != null) filterScheduler.shutdownNow();
+            if (tcpScheduler != null) tcpScheduler.shutdownNow();
+            tcpTunnel.clear();
             closeTun();
             isRunning = false;
             isStarting = false;
@@ -273,7 +287,13 @@ public class AdBlockVpnService extends VpnService {
 
     private void handlePacket(byte[] packet, int bytesRead, FileOutputStream out) {
         try {
-            if (stopRequested) return;
+            if (stopRequested || bytesRead < 20) return;
+            int family = (packet[0] >>> 4) & 15;
+            if ((family == 4 && (packet[9] & 255) == 6)
+                    || (family == 6 && bytesRead >= 40 && (packet[6] & 255) == 6)) {
+                handleTcpPacket(packet, bytesRead, out);
+                return;
+            }
             DnsTunnelPacket.Query query = DnsTunnelPacket.parse(packet, bytesRead);
             if (query == null) return;
             String domain = DnsPacket.extractDomain(packet, query.dnsOffset, query.dnsLength);
@@ -325,6 +345,111 @@ public class AdBlockVpnService extends VpnService {
             writeReply(out, DnsTunnelPacket.wrapReply(original, query, dns));
         } catch (IOException e) {
             if (!stopRequested) Log.w(TAG, "Cannot reply SERVFAIL", e);
+        }
+    }
+
+    /**
+     * DNS/TCP packets use a small purpose-built stream endpoint; regular
+     * non-DNS TCP traffic is never routed into this VPN.
+     */
+    private void handleTcpPacket(byte[] packet, int size, FileOutputStream out) throws IOException {
+        DnsTcpTunnel.Result result = tcpTunnel.receive(packet, size, System.currentTimeMillis());
+        writeTcpPackets(out, result.replies);
+        DnsTcpTunnel.Request request = result.request;
+        if (request == null) return;
+
+        String domain = DnsPacket.extractDomain(request.dns, 0, request.dns.length);
+        if (domain == null) return; // already validated by the TCP stream parser
+        queriesSeen.incrementAndGet();
+        lastDomain = domain;
+        boolean blocked = isBlocked(domain);
+        note(domain, blocked);
+        if (blocked) {
+            int count = blockedCount.incrementAndGet();
+            if (count % 20 == 0) NotificationHelper.update(this, count);
+            answerTcpRequest(request,
+                    DnsPacket.buildNxDomain(request.dns, 0, request.dns.length), out);
+            broadcast(ACTION_STATS_UPDATE);
+            return;
+        }
+        forwarded.incrementAndGet();
+        ThreadPoolExecutor pool = dnsPool;
+        if (pool == null) {
+            answerTcpRequest(request,
+                    DnsPacket.buildServFail(request.dns, 0, request.dns.length), out);
+            return;
+        }
+        try {
+            pool.execute(() -> resolveTcpDns(request, out));
+        } catch (RejectedExecutionException busy) {
+            errors.incrementAndGet();
+            answerTcpRequest(request,
+                    DnsPacket.buildServFail(request.dns, 0, request.dns.length), out);
+        }
+    }
+
+    private void writeTcpPackets(FileOutputStream out, List<byte[]> packets) throws IOException {
+        for (byte[] packet : packets) writeReply(out, packet);
+    }
+
+    private void answerTcpRequest(DnsTcpTunnel.Request request, byte[] dns,
+                                  FileOutputStream out) throws IOException {
+        DnsTcpTunnel.Result result = tcpTunnel.complete(request, dns,
+                System.currentTimeMillis());
+        writeTcpPackets(out, result.replies);
+    }
+
+    /** Native TCP/53 first; fallback UDP/53 if the upstream blocks TCP. */
+    private void resolveTcpDns(DnsTcpTunnel.Request request, FileOutputStream out) {
+        if (stopRequested) return;
+        byte[] response = null;
+        InetAddress server = upstream;
+        Network network = underlying;
+        try {
+            if (server != null) {
+                response = retryTruncatedOverTcp(request.dns, server, network);
+                if (response == null) response = resolveDnsViaUdp(request.dns, server, network);
+            }
+            if (response == null) {
+                errors.incrementAndGet();
+                recordUpstreamFailure();
+                response = DnsPacket.buildServFail(request.dns, 0, request.dns.length);
+            } else {
+                answered.incrementAndGet();
+                consecutiveFailures.set(0);
+            }
+            if (!stopRequested) answerTcpRequest(request, response, out);
+        } catch (IOException e) {
+            if (!stopRequested) {
+                errors.incrementAndGet();
+                Log.w(TAG, "TCP DNS tunnel reply failed", e);
+            }
+        }
+    }
+
+    private byte[] resolveDnsViaUdp(byte[] dns, InetAddress server, Network network) {
+        DatagramSocket socket = null;
+        try {
+            socket = new DatagramSocket();
+            bindOutside(socket, network);
+            socket.connect(server, 53);
+            socket.setSoTimeout(DNS_TIMEOUT_MS);
+            socket.send(new DatagramPacket(dns, dns.length));
+            byte[] received = new byte[DnsTcpWire.MAX_DNS_RESPONSE];
+            DatagramPacket reply = new DatagramPacket(received, received.length);
+            socket.receive(reply);
+            if (reply.getLength() < 12
+                    || !DnsTcpWire.matchesQuery(dns, received)
+                    || (received[2] & 0x02) != 0) return null;
+            return Arrays.copyOf(received, reply.getLength());
+        } catch (SocketTimeoutException e) {
+            timeouts.incrementAndGet();
+            return null;
+        } catch (IOException e) {
+            Log.w(TAG, "Fallback UDP DNS failed: " + e.getMessage());
+            return null;
+        } finally {
+            if (socket != null) socket.close();
         }
     }
 
