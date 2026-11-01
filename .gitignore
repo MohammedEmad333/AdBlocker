@@ -7,3 +7,15 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# Local signing credentials and generated APKs
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+.env
+.env.*
+*.apk
+*.aab
+app/build/
