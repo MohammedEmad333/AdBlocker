@@ -68,3 +68,31 @@ locally without a checked-in Gradle wrapper, install Gradle 8.6 and use
 5. Exclude a launchable app, stop/start VPN, and verify that app bypasses DNS
    filtering without disabling filtering in other apps.
 6. Leave VPN running >24 hours to verify the periodic refresh behaves correctly.
+
+
+## Dashboard, activity log and localization (phase 3)
+
+- The main dashboard exposes current-session blocked, allowed and total DNS
+  query counts, blocking percentage, number of cached filter domains, resolver
+  and timeout/error diagnostics.
+- The DNS activity screen searches and filters recent hostnames by decision,
+  with local timestamps. At most 512 events are held **in memory only**;
+  the UI shows up to 150 matching events and retains no persistent log.
+- Log history is cleared at every VPN session start and when the Android app
+  process exits. Dashboard counters are current-session only, not historical
+  global statistics.
+- Settings includes an English/Arabic/system language selector backed by
+  AndroidX AppCompat app locales. Resources use RTL-friendly layouts.
+- Notification text is translated using the current service context locale
+  (which may reflect the system locale on older Android releases).
+
+### Phase 3 acceptance tests
+
+1. Start protection and check that blocked + allowed equals total DNS queries.
+2. Open DNS activity, search mixed-case hostnames, and use all/blocked/allowed
+   filters; check newest-first order and timestamps.
+3. Restart protection and confirm the previous session log is gone.
+4. Change language between Arabic, English and system; inspect home, log,
+   settings and navigation, including RTL and long text.
+5. With large DNS bursts, confirm the activity screen stays responsive and
+   the event history never exceeds 512 entries.

@@ -18,9 +18,9 @@ public final class NotificationHelper {
     public static void createChannel(Context ctx) {
         NotificationChannel ch = new NotificationChannel(
                 CHANNEL_ID,
-                "Ad Blocker",
+                ctx.getString(R.string.notification_channel),
                 NotificationManager.IMPORTANCE_LOW); // silent -- no sound, no badge
-        ch.setDescription("Shown while the ad blocker is running");
+        ch.setDescription(ctx.getString(R.string.notification_description));
         ctx.getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
 
@@ -44,15 +44,15 @@ public final class NotificationHelper {
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
 
         String body = loading
-                ? "Loading blocklist\u2026"
-                : "Blocked " + blocked + (blocked == 1 ? " request" : " requests");
+                ? ctx.getString(R.string.notification_loading)
+                : ctx.getString(R.string.notification_blocked_count, blocked);
 
         return new Notification.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_shield)
-                .setContentTitle("Ad Blocker is running")
+                .setContentTitle(ctx.getString(R.string.notification_title))
                 .setContentText(body)
                 .setContentIntent(openApp)
-                .addAction(0, "Stop", stopAction)
+                .addAction(0, ctx.getString(R.string.notification_stop), stopAction)
                 .setOngoing(true) // user can't swipe it away
                 .build();
     }

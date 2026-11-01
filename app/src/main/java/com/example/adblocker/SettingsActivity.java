@@ -1,6 +1,11 @@
 package com.example.adblocker;
 
-import android.app.Activity;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -24,7 +29,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /** Simple settings UI with no third-party dependencies. */
-public final class SettingsActivity extends Activity {
+public final class SettingsActivity extends AppCompatActivity {
     private FilterSettings settings;
     private LinearLayout root;
     private TextView updateStatus;
@@ -42,41 +47,42 @@ public final class SettingsActivity extends Activity {
         scroll.addView(root);
         setContentView(scroll);
 
-        Button back = button("Back to protection");
+        Button back = button(getString(R.string.settings_back));
         back.setOnClickListener(v -> finish());
         root.addView(back);
-        label("FILTER SETTINGS", 26, R.color.text);
-        label("Changes to lists apply while protection is running. App exclusions need a stop/start of VPN.", 13, R.color.muted);
+        label(getString(R.string.settings_title), 26, R.color.text);
+        label(getString(R.string.settings_description), 13, R.color.muted);
+        languageSelector();
 
-        section("Blocklist sources");
-        sourceToggle("StevenBlack (default)", FilterSettings.STEVENBLACK);
-        sourceToggle("AdAway (optional)", FilterSettings.ADAWAY);
+        section(getString(R.string.settings_sources));
+        sourceToggle(getString(R.string.source_stevenblack), FilterSettings.STEVENBLACK);
+        sourceToggle(getString(R.string.source_adaway), FilterSettings.ADAWAY);
         updateStatus = label("", 12, R.color.muted);
         refreshTime();
-        Button refresh = button("Download / refresh lists now");
+        Button refresh = button(getString(R.string.settings_refresh));
         refresh.setOnClickListener(v -> {
             refresh.setEnabled(false);
             if (AdBlockVpnService.isRunning) {
                 sendRefresh(true);
-                toast("Refresh requested. Reopen settings to see last successful download.");
+                toast(getString(R.string.settings_refresh_requested));
                 refresh.setEnabled(true);
             } else {
-                toast("Downloading enabled lists...");
+                toast(getString(R.string.settings_downloading));
                 new Thread(() -> {
                     new BlocklistManager(getApplicationContext()).load(true);
                     runOnUiThread(() -> {
                         refresh.setEnabled(true);
                         refreshTime();
-                        toast("List refresh finished. Stale cached lists are kept if offline.");
+                        toast(getString(R.string.settings_refresh_finished));
                     });
                 }, "ManualFilterDownload").start();
             }
         });
         root.addView(refresh);
-        label("Sources are downloaded over HTTPS. The previous cached copy is kept if an update fails.", 12, R.color.muted);
+        label(getString(R.string.settings_https_hint), 12, R.color.muted);
 
-        domainEditor("Allowed domains (override all lists)", true);
-        domainEditor("Blocked domains (also match subdomains)", false);
+        domainEditor(getString(R.string.settings_allowed_domains), true);
+        domainEditor(getString(R.string.settings_blocked_domains), false);
         installedApps();
     }
 
@@ -87,10 +93,10 @@ public final class SettingsActivity extends Activity {
 
     private void refreshTime() {
         long timestamp = settings.lastDownloadedAt();
-        updateStatus.setText(timestamp <= 0 ? "No successful source download recorded yet"
-                : "Last successful download: "
-                + DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                    .format(new java.util.Date(timestamp)));
+        updateStatus.setText(timestamp <= 0 ? getString(R.string.settings_no_update)
+                : getString(R.string.settings_update_time,
+                    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                        .format(new java.util.Date(timestamp))));
     }
 
     private void sourceToggle(String title, String id) {
@@ -119,7 +125,7 @@ public final class SettingsActivity extends Activity {
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         area.addView(input);
 
-        Button add = button("Add domain");
+        Button add = button(getString(R.string.settings_add_domain));
         area.addView(add);
         LinearLayout entries = new LinearLayout(this);
         entries.setOrientation(LinearLayout.VERTICAL);
@@ -127,7 +133,7 @@ public final class SettingsActivity extends Activity {
         Runnable redraw = () -> showDomains(entries, allow);
         add.setOnClickListener(v -> {
             if (!settings.addDomain(allow, input.getText().toString())) {
-                input.setError("Enter a domain only (e.g. example.com)");
+                input.setError(getString(R.string.settings_domain_error));
                 return;
             }
             input.setText("");
@@ -143,12 +149,12 @@ public final class SettingsActivity extends Activity {
                 ? settings.allowedDomains() : settings.blockedDomains());
         Collections.sort(domains);
         if (domains.isEmpty()) {
-            TextView empty = small("No custom domains");
+            TextView empty = small(getString(R.string.settings_no_domains));
             entries.addView(empty);
             return;
         }
         for (String domain : domains) {
-            Button remove = button(domain + "  —  Remove");
+            Button remove = button(getString(R.string.settings_remove_domain, domain));
             remove.setAllCaps(false);
             remove.setOnClickListener(v -> {
                 settings.removeDomain(allow, domain);
@@ -160,8 +166,8 @@ public final class SettingsActivity extends Activity {
     }
 
     private void installedApps() {
-        section("Apps excluded from DNS filtering");
-        label("Excluded apps bypass this VPN. Stop and start protection after changing these options.", 12, R.color.muted);
+        section(getString(R.string.settings_apps));
+        label(getString(R.string.settings_apps_explain), 12, R.color.muted);
         Map<String, String> installed = new TreeMap<>();
         PackageManager pm = getPackageManager();
         Intent launcher = new Intent(Intent.ACTION_MAIN);
@@ -175,7 +181,7 @@ public final class SettingsActivity extends Activity {
             installed.put(pkg, name == null ? pkg : name.toString());
         }
         Set<String> excluded = settings.excludedPackages();
-        if (installed.isEmpty()) label("No launchable applications found.", 12, R.color.muted);
+        if (installed.isEmpty()) label(getString(R.string.settings_no_apps), 12, R.color.muted);
         for (Map.Entry<String, String> entry : installed.entrySet()) {
             String pkg = entry.getKey();
             CheckBox checkbox = new CheckBox(this);
@@ -185,7 +191,7 @@ public final class SettingsActivity extends Activity {
             checkbox.setChecked(excluded.contains(pkg));
             checkbox.setOnCheckedChangeListener((b, selected) -> {
                 settings.setExcluded(pkg, selected);
-                toast("Restart VPN for app exclusions to apply.");
+                toast(getString(R.string.settings_restart_needed));
             });
             root.addView(checkbox);
         }
@@ -197,6 +203,35 @@ public final class SettingsActivity extends Activity {
                 .setAction(force ? AdBlockVpnService.ACTION_REFRESH_FORCE
                         : AdBlockVpnService.ACTION_REFRESH);
         startService(intent);
+    }
+
+    /** Language selection uses AndroidX AppCompat app locales on Android 8+. */
+    private void languageSelector() {
+        section(getString(R.string.settings_language));
+        Spinner spinner = new Spinner(this);
+        String[] names = {
+                getString(R.string.language_system),
+                getString(R.string.language_arabic),
+                getString(R.string.language_english)
+        };
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, names);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        String current = AppCompatDelegate.getApplicationLocales().toLanguageTags();
+        final int initial = current.startsWith("ar") ? 1 : current.startsWith("en") ? 2 : 0;
+        spinner.setSelection(initial);
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, android.view.View view,
+                                                 int position, long id) {
+                String tags = position == 1 ? "ar" : position == 2 ? "en" : "";
+                if (tags.equals(AppCompatDelegate.getApplicationLocales().toLanguageTags()))
+                    return;
+                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tags));
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        root.addView(spinner);
     }
 
     private void section(String heading) {

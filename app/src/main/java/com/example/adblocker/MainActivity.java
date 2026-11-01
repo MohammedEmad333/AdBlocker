@@ -1,4 +1,4 @@
-package com.example.adblocker; // change to match your package
+package com.example.adblocker;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -13,6 +13,7 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,25 +22,24 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.List;
-import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity {
-
-    private TextView statusText, upstreamText, stoppedCount, seenCount, streamText, healthText;
-    private Button   toggleButton;
-
-    private int cAmber, cText, cMuted, cInk;
+/** Live, localized protection overview. DNS records stay in process memory only. */
+public final class MainActivity extends AppCompatActivity {
+    private TextView statusText, upstreamText, stoppedCount, seenCount, allowedCount;
+    private TextView blockedRate, streamText, healthText, domainsLoaded;
+    private ProgressBar blockingProgress;
+    private Button toggleButton;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() {
         @Override public void run() {
             render();
-            ui.postDelayed(this, 1000);
+            ui.postDelayed(this, 1500);
         }
     };
 
     private final BroadcastReceiver statusReceiver = new BroadcastReceiver() {
-        @Override public void onReceive(Context ctx, Intent intent) {
+        @Override public void onReceive(Context context, Intent intent) {
             render();
         }
     };
@@ -49,68 +49,62 @@ public class MainActivity extends AppCompatActivity {
                     new ActivityResultContracts.StartActivityForResult(),
                     result -> {
                         if (result.getResultCode() == RESULT_OK) startVpnService();
-                        else Toast.makeText(this, "Blocking needs VPN permission to see DNS",
+                        else Toast.makeText(this, R.string.vpn_permission_needed,
                                 Toast.LENGTH_SHORT).show();
                     });
 
-    // -------------------------------------------------------------------------
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        cAmber = getColor(R.color.amber);
-        cText  = getColor(R.color.text);
-        cMuted = getColor(R.color.muted);
-        cInk   = getColor(R.color.ink);
-
-        statusText   = findViewById(R.id.statusText);
+        statusText = findViewById(R.id.statusText);
         upstreamText = findViewById(R.id.upstreamText);
         stoppedCount = findViewById(R.id.stoppedCount);
-        seenCount    = findViewById(R.id.seenCount);
-        streamText   = findViewById(R.id.streamText);
-        healthText   = findViewById(R.id.healthText);
+        seenCount = findViewById(R.id.seenCount);
+        allowedCount = findViewById(R.id.allowedCount);
+        blockedRate = findViewById(R.id.blockedRate);
+        streamText = findViewById(R.id.streamText);
+        healthText = findViewById(R.id.healthText);
+        domainsLoaded = findViewById(R.id.domainsLoaded);
+        blockingProgress = findViewById(R.id.blockingProgress);
         toggleButton = findViewById(R.id.toggleButton);
+
         findViewById(R.id.settingsButton).setOnClickListener(v ->
                 startActivity(new Intent(this, SettingsActivity.class)));
-
+        findViewById(R.id.openLogButton).setOnClickListener(v ->
+                startActivity(new Intent(this, ActivityLogActivity.class)));
         toggleButton.setOnClickListener(v -> {
             if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting) stopVpnService();
             else requestConsent();
         });
+        render();
     }
 
-    @Override
-    protected void onResume() {
+    @Override protected void onResume() {
         super.onResume();
-        IntentFilter f = new IntentFilter();
-        f.addAction(AdBlockVpnService.ACTION_VPN_STARTED);
-        f.addAction(AdBlockVpnService.ACTION_VPN_STOPPED);
-        f.addAction(AdBlockVpnService.ACTION_STATS_UPDATE);
+        IntentFilter events = new IntentFilter();
+        events.addAction(AdBlockVpnService.ACTION_VPN_STARTED);
+        events.addAction(AdBlockVpnService.ACTION_VPN_STOPPED);
+        events.addAction(AdBlockVpnService.ACTION_STATS_UPDATE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(statusReceiver, f, Context.RECEIVER_NOT_EXPORTED);
+            registerReceiver(statusReceiver, events, Context.RECEIVER_NOT_EXPORTED);
         } else {
-            registerReceiver(statusReceiver, f);
+            registerReceiver(statusReceiver, events);
         }
-        ui.post(tick);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        unregisterReceiver(statusReceiver);
         ui.removeCallbacks(tick);
+        render();
+        ui.postDelayed(tick, 1500);
     }
 
-    // -------------------------------------------------------------------------
-    // VPN control
-    // -------------------------------------------------------------------------
+    @Override protected void onPause() {
+        ui.removeCallbacks(tick);
+        unregisterReceiver(statusReceiver);
+        super.onPause();
+    }
 
     private void requestConsent() {
         Intent consent = VpnService.prepare(this);
-        if (consent != null) vpnConsent.launch(consent);
-        else startVpnService();
+        if (consent == null) startVpnService();
+        else vpnConsent.launch(consent);
     }
 
     private void startVpnService() {
@@ -118,9 +112,7 @@ public class MainActivity extends AppCompatActivity {
                 .setAction(AdBlockVpnService.ACTION_START);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(start);
         else startService(start);
-        statusText.setText("STARTING");
-        upstreamText.setText("finding a resolver that answers");
-        toggleButton.setEnabled(false);
+        statusText.setText(R.string.protection_starting);
     }
 
     private void stopVpnService() {
@@ -128,62 +120,57 @@ public class MainActivity extends AppCompatActivity {
                 .setAction(AdBlockVpnService.ACTION_STOP));
     }
 
-    // -------------------------------------------------------------------------
-    // Render
-    // -------------------------------------------------------------------------
-
     private void render() {
-        boolean on = AdBlockVpnService.isRunning;
+        boolean running = AdBlockVpnService.isRunning;
         boolean starting = AdBlockVpnService.isStarting;
+        int blocked = Math.max(0, AdBlockVpnService.blockedCount.get());
+        int queried = Math.max(0, AdBlockVpnService.queriesSeen.get());
+        int allowed = Math.max(0, queried - blocked);
+        int rate = queried == 0 ? 0 : (int) Math.round(100.0 * blocked / queried);
 
-        statusText.setText(on ? "BLOCKING" : starting ? "STARTING" : "OFF");
-        statusText.setTextColor(on ? cText : cMuted);
+        statusText.setText(running ? R.string.protection_on
+                : starting ? R.string.protection_starting : R.string.protection_off);
+        statusText.setTextColor(getColor(running ? R.color.text : R.color.muted));
+        upstreamText.setText(running
+                ? getString(R.string.resolver_format, AdBlockVpnService.upstreamInfo)
+                : getString(starting ? R.string.protection_preparing : R.string.protection_prompt));
+        toggleButton.setText(running ? R.string.stop_protection
+                : starting ? R.string.cancel_protection : R.string.start_protection);
+        toggleButton.setBackgroundResource(running || starting
+                ? R.drawable.pill_outline : R.drawable.pill_filled);
+        toggleButton.setTextColor(getColor(running || starting ? R.color.text : R.color.ink));
 
-        upstreamText.setText(on
-                ? "resolving via " + AdBlockVpnService.upstreamInfo
-                : starting ? "preparing DNS protection" : "tap below to start");
-
-        stoppedCount.setText(String.valueOf(AdBlockVpnService.blockedCount.get()));
-        seenCount.setText(String.valueOf(AdBlockVpnService.queriesSeen.get()));
-
-        // Loud when there's something to do, quiet once it's working.
-        toggleButton.setEnabled(true);
-        toggleButton.setText(on ? "Stop" : starting ? "Cancel" : "Start blocking");
-        toggleButton.setBackgroundResource(on ? R.drawable.pill_outline : R.drawable.pill_filled);
-        toggleButton.setTextColor(on ? cMuted : cInk);
-
-        renderStream(on);
-        renderHealth(on);
-    }
-
-    /** The live feed. Every domain the tunnel saw, newest first, with its verdict. */
-    private void renderStream(boolean on) {
-        List<AdBlockVpnService.Event> events = AdBlockVpnService.recent();
-
-        if (events.isEmpty()) {
-            streamText.setTextColor(cMuted);
-            streamText.setText(on ? "waiting for the first lookup" : "");
-            return;
-        }
-
-        SpannableStringBuilder sb = new SpannableStringBuilder();
-        for (AdBlockVpnService.Event e : events) {
-            String d = e.domain.length() > 34 ? e.domain.substring(0, 33) + "\u2026" : e.domain;
-            int start = sb.length();
-            sb.append(e.blocked ? "\u00d7  " : "\u00b7  ").append(d).append("\n");
-            sb.setSpan(new ForegroundColorSpan(e.blocked ? cAmber : cMuted),
-                    start, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-        streamText.setText(sb);
-    }
-
-    /** Kept from the debugging build -- it's how we found the DNS bug, so it stays. */
-    private void renderHealth(boolean on) {
-        if (!on) { healthText.setText(""); return; }
-        healthText.setText(String.format(Locale.US,
-                "answered %d   timeouts %d   errors %d",
+        stoppedCount.setText(String.valueOf(blocked));
+        seenCount.setText(String.valueOf(queried));
+        allowedCount.setText(String.valueOf(allowed));
+        blockedRate.setText(getString(R.string.block_rate_format, rate));
+        blockingProgress.setProgress(rate);
+        domainsLoaded.setText(getString(R.string.domains_loaded_format,
+                AdBlockVpnService.downloadedDomainCount()));
+        healthText.setText(getString(R.string.health_format,
                 AdBlockVpnService.answered.get(),
                 AdBlockVpnService.timeouts.get(),
                 AdBlockVpnService.errors.get()));
+        renderPreview();
+    }
+
+    private void renderPreview() {
+        List<DnsHistory.Entry> events = AdBlockVpnService.HISTORY.search(
+                "", DnsHistory.Filter.ALL, 6);
+        if (events.isEmpty()) {
+            streamText.setText(R.string.no_recent_requests);
+            streamText.setTextColor(getColor(R.color.muted));
+            return;
+        }
+        SpannableStringBuilder text = new SpannableStringBuilder();
+        for (DnsHistory.Entry entry : events) {
+            int start = text.length();
+            text.append(entry.blocked ? "×  " : "•  ");
+            text.append(entry.domain).append("\n");
+            text.setSpan(new ForegroundColorSpan(
+                    getColor(entry.blocked ? R.color.amber : R.color.muted)),
+                    start, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        streamText.setText(text);
     }
 }
