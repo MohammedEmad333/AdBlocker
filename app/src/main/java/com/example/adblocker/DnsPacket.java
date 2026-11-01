@@ -49,49 +49,53 @@ public final class DnsPacket {
      * @return lower-cased domain, or null if malformed/empty
      */
     public static String extractDomain(byte[] packet, int dnsStart, int dnsLength) {
-        int pos = dnsStart + 12; // skip the DNS header
-        int end = dnsStart + dnsLength;
-        StringBuilder domain = new StringBuilder();
+        int end = validatedDnsEnd(packet, dnsStart, dnsLength);
+        if (end < 0 || (packet[dnsStart + 4] & 0xFF) != 0
+                || (packet[dnsStart + 5] & 0xFF) != 1) return null;
 
+        int pos = dnsStart + 12;
+        StringBuilder domain = new StringBuilder();
+        boolean terminated = false;
         while (pos < end) {
-            int labelLen = packet[pos] & 0xFF;
-            if (labelLen == 0) {
-                break; // reached the end of the name
-            }
-            // Compression pointers (top two bits set) never appear in a
-            // query's question section, so we don't need to follow them here.
-            if ((labelLen & 0xC0) != 0) {
-                return null;
-            }
-            pos++;
-            if (pos + labelLen > end) {
-                return null; // runs past the packet -> malformed
-            }
-            if (domain.length() > 0) {
-                domain.append('.');
-            }
-            domain.append(new String(packet, pos, labelLen)); // labels are ASCII
+            int labelLen = packet[pos++] & 0xFF;
+            if (labelLen == 0) { terminated = true; break; }
+            // Compressed QNAMEs and labels above 63 bytes are not supported.
+            if (labelLen > 63 || labelLen > end - pos) return null;
+            if (domain.length() > 0) domain.append('.');
+            domain.append(new String(packet, pos, labelLen,
+                    java.nio.charset.StandardCharsets.US_ASCII));
+            if (domain.length() > 253) return null;
             pos += labelLen;
         }
-        return domain.length() == 0 ? null : domain.toString().toLowerCase();
+        if (!terminated || domain.length() == 0 || end - pos < 4) return null;
+        return domain.toString().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static int validatedDnsEnd(byte[] packet, int start, int length) {
+        if (packet == null || start < 0 || length < 17
+                || start > packet.length || length > packet.length - start) return -1;
+        return start + length;
     }
 
     /**
-     * Offset just past the question section (QNAME + QTYPE + QCLASS),
-     * or -1 if the question is malformed.
+     * Offset after QNAME + QTYPE + QCLASS, or -1 for a malformed query.
+     * Every accepted DNS query must contain precisely one question.
      */
     public static int questionEnd(byte[] packet, int dnsStart, int dnsLength) {
+        int end = validatedDnsEnd(packet, dnsStart, dnsLength);
+        if (end < 0 || (packet[dnsStart + 4] & 0xFF) != 0
+                || (packet[dnsStart + 5] & 0xFF) != 1) return -1;
+
         int pos = dnsStart + 12;
-        int end = dnsStart + dnsLength;
+        boolean terminated = false;
         while (pos < end) {
-            int len = packet[pos] & 0xFF;
-            if (len == 0) { pos++; break; }
-            if ((len & 0xC0) != 0) return -1; // compression pointer: not valid here
-            pos += 1 + len;
-            if (pos > end) return -1;
+            int labelLen = packet[pos++] & 0xFF;
+            if (labelLen == 0) { terminated = true; break; }
+            if (labelLen > 63 || labelLen > end - pos) return -1;
+            pos += labelLen;
         }
-        pos += 4; // QTYPE + QCLASS
-        return pos <= end ? pos : -1;
+        if (!terminated || end - pos < 4) return -1;
+        return pos + 4;
     }
 
     /**
@@ -109,20 +113,28 @@ public final class DnsPacket {
      */
     public static byte[] buildNxDomain(byte[] packet, int dnsStart, int dnsLength) {
         int qEnd = questionEnd(packet, dnsStart, dnsLength);
-        int len  = (qEnd == -1) ? dnsLength : (qEnd - dnsStart);
+        if (qEnd == -1) throw new IllegalArgumentException("Malformed DNS question");
+        int len = qEnd - dnsStart;
 
         byte[] dns = new byte[len];
         System.arraycopy(packet, dnsStart, dns, 0, len);
 
         // Flags: QR=1 (response), RD=1, RA=1, RCODE=3 (NXDOMAIN)
-        dns[2] = (byte) 0x81;
-        dns[3] = (byte) 0x83;
+        dns[2] = (byte) (0x80 | (packet[dnsStart + 2] & 0x01)); // QR + original RD
+        dns[3] = (byte) 0x83; // RA + NXDOMAIN
 
         // Counts now match what the message actually contains.
         dns[4] = 0; dns[5] = 1;   // QDCOUNT = 1 (the echoed question)
         dns[6] = 0; dns[7] = 0;   // ANCOUNT
         dns[8] = 0; dns[9] = 0;   // NSCOUNT
         dns[10] = 0; dns[11] = 0; // ARCOUNT
+        return dns;
+    }
+
+    /** Retryable failure when no capacity exists to relay a valid question. */
+    public static byte[] buildServFail(byte[] packet, int dnsStart, int dnsLength) {
+        byte[] dns = buildNxDomain(packet, dnsStart, dnsLength);
+        dns[3] = (byte) 0x82; // RA + SERVFAIL
         return dns;
     }
 
@@ -137,8 +149,13 @@ public final class DnsPacket {
      * @param dnsResponse the DNS message to send back
      */
     public static byte[] buildResponsePacket(byte[] original, int ipHeaderLen, byte[] dnsResponse) {
-        int udpLen = 8 + dnsResponse.length;          // UDP header + payload
+        if (original == null || dnsResponse == null || ipHeaderLen < 20
+                || ipHeaderLen > original.length - 8) {
+            throw new IllegalArgumentException("Invalid IPv4/UDP response envelope");
+        }
+        int udpLen = 8 + dnsResponse.length;
         int totalLen = ipHeaderLen + udpLen;
+        if (totalLen > 65535) throw new IllegalArgumentException("IP packet too large");
         byte[] out = new byte[totalLen];
 
         // ---- IP header: copy, then rewrite ----
