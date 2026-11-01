@@ -41,7 +41,7 @@ public class DnsPacketTest {
         assertEquals(q.length, response.length);
         assertEquals(q[0], response[0]);
         assertEquals(q[1], response[1]);
-        assertEquals(0x80, response[2] & 0xFF);
+        assertEquals(0x81, response[2] & 0xFF); // QR + echoed RD
         assertEquals(0x83, response[3] & 0xFF);
         assertEquals(0, response[11] & 0xFF);
     }
