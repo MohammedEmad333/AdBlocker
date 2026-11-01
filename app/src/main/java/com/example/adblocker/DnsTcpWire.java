@@ -32,8 +32,21 @@ public final class DnsTcpWire {
     }
 
     public static boolean matchesQuery(byte[] query, byte[] response) {
-        return query != null && response != null && query.length >= 12
-                && response.length >= 12 && query[0] == response[0]
-                && query[1] == response[1] && (response[2] & 0x80) != 0;
+        if (query == null || response == null || query.length < 17
+                || response.length < 17 || query[0] != response[0]
+                || query[1] != response[1] || (response[2] & 0x80) == 0)
+            return false;
+        // Transaction ID alone is insufficient: ensure the reply contains the
+        // *same question*, QTYPE and QCLASS. Name comparisons ignore case.
+        int qEnd = DnsPacket.questionEnd(query, 0, query.length);
+        int aEnd = DnsPacket.questionEnd(response, 0, response.length);
+        if (qEnd < 0 || aEnd < 0) return false;
+        String asked = DnsPacket.extractDomain(query, 0, query.length);
+        String replied = DnsPacket.extractDomain(response, 0, response.length);
+        if (asked == null || !asked.equals(replied)) return false;
+        for (int i = 1; i <= 4; i++) {
+            if (query[qEnd - i] != response[aEnd - i]) return false;
+        }
+        return true;
     }
 }

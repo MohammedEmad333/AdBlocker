@@ -71,18 +71,28 @@ public final class DnsTcpTunnel {
         if (incoming == null) return result;
         Flow flow = flows.get(incoming.flowId);
         if ((incoming.flags & DnsTcpTunnelPacket.RST) != 0) {
-            flows.remove(incoming.flowId);
+            // Never let a delayed/forged RST evict an unrelated live flow.
+            // This DNS endpoint has a narrow receive window: exact next SEQ.
+            if (flow != null && incoming.seq == flow.nextClient)
+                flows.remove(incoming.flowId);
             return result;
         }
         if ((incoming.flags & DnsTcpTunnelPacket.SYN) != 0) {
-            if ((incoming.flags & DnsTcpTunnelPacket.ACK) != 0) return result;
-            if (flow != null && !flow.established
-                    && incoming.seq == DnsTcpTunnelPacket.plus(flow.nextClient, -1)) {
-                result.replies.add(flow.lastSent);
+            if ((incoming.flags & (DnsTcpTunnelPacket.ACK | DnsTcpTunnelPacket.FIN)) != 0)
+                return result;
+            expireOld(now);
+            flow = flows.get(incoming.flowId);
+            if (flow != null) {
+                if (!flow.established
+                        && incoming.seq == DnsTcpTunnelPacket.plus(flow.nextClient, -1)
+                        && flow.lastSent != null) {
+                    flow.lastSeen = now;
+                    result.replies.add(flow.lastSent); // SYN retransmission
+                }
+                // An established flow must not be overwritten by a delayed SYN.
                 return result;
             }
             // Don't silently evict a live connection to accept unbounded SYN floods.
-            expireOld(now);
             if (flows.size() >= MAX_FLOWS) {
                 result.replies.add(DnsTcpTunnelPacket.reply(incoming, 0,
                         DnsTcpTunnelPacket.plus(incoming.seq, 1),
@@ -101,16 +111,21 @@ public final class DnsTcpTunnel {
             return result;
         }
         if (flow == null || (incoming.flags & DnsTcpTunnelPacket.ACK) == 0) return result;
-        flow.lastSeen = now;
-        flow.lastClient = incoming;
-
+        // Validate the initial handshake and ACK sequence before allowing
+        // the stream position or activity timeout to change.
         if (!flow.established) {
-            if (incoming.ack != flow.nextServer) return result;
+            if (incoming.ack != flow.nextServer || incoming.seq != flow.nextClient)
+                return result;
             flow.established = true;
             flow.lastSent = null;
         }
+        // The sender can retransmit older ACKs, but must not fabricate ACKs
+        // for bytes we never sent or attach DNS bytes to a stale ACK.
+        if (incoming.ack != flow.nextServer) return result;
+        flow.lastSeen = now;
+        flow.lastClient = incoming;
 
-        if (incoming.ack == flow.nextServer && flow.lastSent != null) {
+        if (flow.lastSent != null) {
             // All outstanding response bytes have been acknowledged.
             flow.lastSent = null;
             flow.retries = 0;
@@ -121,7 +136,12 @@ public final class DnsTcpTunnel {
         }
 
         if ((incoming.flags & DnsTcpTunnelPacket.FIN) != 0) {
-            long ack = DnsTcpTunnelPacket.plus(incoming.seq, incoming.payload.length + 1L);
+            // FIN must arrive at the next expected stream byte, not an old seq.
+            if (incoming.seq != flow.nextClient || incoming.payload.length != 0) {
+                ackOnly(flow, result.replies);
+                return result;
+            }
+            long ack = DnsTcpTunnelPacket.plus(incoming.seq, 1L);
             result.replies.add(DnsTcpTunnelPacket.reply(incoming, flow.nextServer, ack,
                     DnsTcpTunnelPacket.FIN | DnsTcpTunnelPacket.ACK, new byte[0]));
             flows.remove(incoming.flowId);
