@@ -408,7 +408,15 @@ public class AdBlockVpnService extends VpnService {
             // obtain the complete response, still replying via UDP to the app.
             if ((dnsResponse[2] & 0x02) != 0) {
                 byte[] full = retryTruncatedOverTcp(query, resolver, network);
-                if (full != null) dnsResponse = full;
+                // The tunnel MTU is 1500 bytes; avoid oversized IPv4/IPv6 replies.
+                if (full != null && full.length <= 1500 - parsed.ipHeaderLength - 8) {
+                    dnsResponse = full;
+                }
+            }
+            if (dnsResponse.length > 1500 - parsed.ipHeaderLength - 8) {
+                errors.incrementAndGet();
+                sendServFail(packet, parsed, out);
+                return;
             }
             writeReply(out, DnsTunnelPacket.wrapReply(packet, parsed, dnsResponse));
             answered.incrementAndGet();

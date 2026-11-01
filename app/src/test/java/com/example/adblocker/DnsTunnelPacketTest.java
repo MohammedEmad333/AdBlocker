@@ -80,6 +80,32 @@ public class DnsTunnelPacketTest {
         catch (IOException expected) {}
     }
 
+    @Test public void rejectsIpv6BadChecksumAndHandlesRandomFuzz() {
+        byte[] q = queryV6("example.net");
+        q[48] ^= 0x01;
+        assertNull(DnsTunnelPacket.parse(q, q.length));
+        java.util.Random random = new java.util.Random(0xBADF00D);
+        for (int i = 0; i < 2000; i++) {
+            byte[] data = new byte[random.nextInt(400)];
+            random.nextBytes(data);
+            DnsTunnelPacket.Query parsed = DnsTunnelPacket.parse(data, data.length);
+            if (parsed != null) {
+                assertEquals(53, ((data[parsed.ipHeaderLength + 2] & 0xff) << 8)
+                        | (data[parsed.ipHeaderLength + 3] & 0xff));
+            }
+        }
+    }
+
+    @Test public void ipv6ResponseRejectsPacketLargerThanTunMtu() {
+        byte[] q = queryV6("example.net");
+        DnsTunnelPacket.Query parsed = DnsTunnelPacket.parse(q, q.length);
+        assertNotNull(parsed);
+        try {
+            DnsTunnelPacket.wrapReply(q, parsed, new byte[1453]);
+            fail("IPv6 reply exceeds MTU");
+        } catch (IllegalArgumentException expected) {}
+    }
+
     @Test public void rejectsIpv6OversizedDeclaredPayload() {
         byte[] q = queryV6("x.example.net");
         q[4] = (byte) 0xff; q[5] = (byte) 0xff;

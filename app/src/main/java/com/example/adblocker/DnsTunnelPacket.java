@@ -1,6 +1,5 @@
 package com.example.adblocker;
 
-import java.util.Arrays;
 
 /**
  * Validates exactly the DNS/UDP packets routed to the virtual resolver.
@@ -67,6 +66,8 @@ public final class DnsTunnelPacket {
         if (udpLen < 25 || udpLen > length - header) return null;
         if (version == 6) {
             if (udpLen != length - header || u16(packet, udp + 6) == 0) return null;
+            // Malformed IPv6 UDP checksums must not be relayed.
+            if (ipv6UdpChecksum(java.util.Arrays.copyOf(packet, length)) != 0xffff) return null;
         }
         int dnsOffset = udp + 8, dnsLength = udpLen - 8;
         if ((packet[dnsOffset + 2] & 0xf8) != 0) return null;
@@ -84,6 +85,7 @@ public final class DnsTunnelPacket {
         }
         if (query.ipVersion != 6) throw new IllegalArgumentException("Unsupported IP family");
         int udpLength = dnsResponse.length + 8;
+        if (udpLength > 1500 - 40) throw new IllegalArgumentException("Reply exceeds tunnel MTU");
         if (udpLength > 65535 - 40) throw new IllegalArgumentException("Reply exceeds IPv6 MTU");
         byte[] answer = new byte[40 + udpLength];
         System.arraycopy(original, 0, answer, 0, 40);

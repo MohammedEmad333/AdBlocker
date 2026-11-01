@@ -15,8 +15,9 @@ UDP queries over the underlying network.
 - Cancellation is checked between download, resolver probe, and TUN setup.
 - Downloads are validated before replacing the cached blocklist; stale cache
   remains available offline.
-- DNS-over-HTTPS, DNS-over-TLS and DNS-over-TCP aren't intercepted. Some apps
-  and sites can therefore bypass the blocker.
+- DNS-over-HTTPS, DNS-over-TLS and app-originated DNS-over-TCP are not intercepted.
+  Upstream TCP fallback can resolve truncated UDP replies, but is not TCP
+  interception for applications. Some apps bypass the blocker.
 - This is not a full network VPN, a comprehensive tracker firewall, or a
   guarantee that all advertisements will disappear.
 
@@ -101,3 +102,21 @@ locally without a checked-in Gradle wrapper, install Gradle 8.6 and use
 ## Release readiness (phase 4)
 
 CI now runs Android lint, unit tests, APK ZIP/metadata verification and SHA-256 generation. Downloaded blocklists are capped at 16 MiB; app backup and cleartext application traffic are disabled. A separate manual release workflow requires owner-controlled signing secrets and checks APK signatures. See [Release guide](RELEASE.md) and [Device matrix](DEVICE_TEST_MATRIX.md). No real-device verification is implied by CI success.
+ 
+
+## Fifth batch: network transport hardening
+
+- Use blocking TUN reads to prevent a hot loop; closing TUN unblocks the read.
+- Support DNS-over-UDP for virtual IPv4 10.0.0.1 and IPv6 fd00::1, including
+  a valid UDP checksum over IPv6 and rejection of invalid headers/checksums.
+- React to network changes using callbacks and reprobe upstream DNS on a
+  background worker. Update the VPN underlying networks on success.
+- Retry truncated upstream DNS/UDP replies using TCP/53, with bounded response
+  size and timeout. App-originated TCP DNS is NOT yet intercepted.
+- Reject oversized replies beyond the 1500-byte tunnel MTU with SERVFAIL.
+- Unit tests cover IPv6 validation, responses, malformed packets, random data
+  and TCP framing; physical-device tests are still needed.
+
+Test on dual-stack Wi-Fi and cellular, verify A/AAAA queries and blocking
+decisions, switch between networks, and observe restart/stop reliability.
+Do not claim encrypted DNS or complete TCP interception.
