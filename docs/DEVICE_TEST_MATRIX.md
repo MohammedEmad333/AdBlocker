@@ -18,6 +18,7 @@ CI checks lint, Java unit tests and build artifacts. **Real VPN behavior and UI 
 | DNS burst, memory usage and battery | Pending | Pending | Pending |
 | App-originated DNS/TCP over IPv4 and IPv6 | Pending | Pending | Pending |
 | Split DNS/TCP request, large response, retransmission | Pending | Pending | Pending |
+| TCP late SYN/RST and invalid ACK handling | Pending | Pending | Pending |
 | Release signing/upgrade validation | Pending | Pending | Pending |
 
 Useful local commands:
