@@ -82,7 +82,7 @@ public final class DnsTcpTunnelPacket {
             src = 8; dst = 24;
         } else return null;
 
-        if (u16(packet, offset + 2) != 53) return null;
+        if (u16(packet, offset + 2) != 53 || u16(packet, offset) == 0) return null;
         int header = ((packet[offset + 12] >>> 4) & 15) * 4;
         if (header < 20 || header > 60 || offset + header > length) return null;
         // Mandatory nonzero TCP checksum; verify pseudoheader + segment.
@@ -90,6 +90,9 @@ public final class DnsTcpTunnelPacket {
                 transportChecksum(packet, src, dst, offset, length - offset, family) != 0)
             return null;
 
+        // TCP SYN with FIN/RST is invalid and must not reach the session table.
+        int flags = packet[offset + 13] & 255;
+        if ((flags & SYN) != 0 && (flags & (FIN | RST)) != 0) return null;
         int port = u16(packet, offset);
         byte[] data = Arrays.copyOfRange(packet, offset + header, length);
         StringBuilder key = new StringBuilder(family == 4 ? "4:" : "6:");

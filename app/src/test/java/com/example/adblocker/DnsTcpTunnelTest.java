@@ -144,4 +144,82 @@ public class DnsTcpTunnelTest {
         assertTrue(s.engine.complete(req,
                 DnsPacket.buildNxDomain(req.dns, 0, req.dns.length), 200).replies.isEmpty());
     }
+    @Test public void staleSynDoesNotReplaceEstablishedConnection() {
+        Session s = new Session(4, 30200);
+        byte[] oldSyn = client(4, 30200, s.seq - 1, 0, DnsTcpTunnelPacket.SYN, new byte[0]);
+        DnsTcpTunnel.Result duplicate = s.engine.receive(oldSyn, oldSyn.length, ++s.now);
+        assertTrue(duplicate.replies.isEmpty());
+        assertEquals(1, s.engine.activeFlows());
+        assertNotNull(s.query("still-connected.example", false));
+    }
+
+    @Test public void rstRequiresExpectedSequenceNumber() {
+        Session s = new Session(4, 30201);
+        byte[] forged = client(4, 30201, s.seq + 900, 0,
+                DnsTcpTunnelPacket.RST, new byte[0]);
+        s.engine.receive(forged, forged.length, ++s.now);
+        assertEquals(1, s.engine.activeFlows());
+        assertNotNull(s.query("valid.example", false));
+        // A valid reset with the in-order sequence closes the flow.
+        byte[] valid = client(4, 30201, s.seq, 0, DnsTcpTunnelPacket.RST, new byte[0]);
+        s.engine.receive(valid, valid.length, ++s.now);
+        assertEquals(0, s.engine.activeFlows());
+    }
+
+    @Test public void futureAckCannotConsumeDnsRequest() {
+        Session s = new Session(6, 30202);
+        byte[] q = DnsPacket.buildQuery("example.net", 0x1111);
+        byte[] frame = new byte[q.length + 2];
+        DnsTcpTunnelPacket.put16(frame, 0, q.length);
+        System.arraycopy(q, 0, frame, 2, q.length);
+        byte[] invalid = client(6, 30202, s.seq, s.ack + 500,
+                DnsTcpTunnelPacket.ACK | DnsTcpTunnelPacket.PSH, frame);
+        DnsTcpTunnel.Result wrong = s.engine.receive(invalid, invalid.length, ++s.now);
+        assertNull(wrong.request);
+        assertTrue(wrong.replies.isEmpty());
+        assertNotNull(s.query("example.net", false));
+    }
+
+    @Test public void malformedSynFinAndZeroSourcePortAreRejected() {
+        byte[] b = client(4, 30203, 55, 0,
+                DnsTcpTunnelPacket.SYN | DnsTcpTunnelPacket.FIN, new byte[0]);
+        assertNull(DnsTcpTunnelPacket.parse(b, b.length));
+        b = client(6, 30204, 55, 0,
+                DnsTcpTunnelPacket.SYN | DnsTcpTunnelPacket.RST, new byte[0]);
+        assertNull(DnsTcpTunnelPacket.parse(b, b.length));
+        b = client(4, 0, 55, 0, DnsTcpTunnelPacket.SYN, new byte[0]);
+        assertNull(DnsTcpTunnelPacket.parse(b, b.length));
+    }
+
+    @Test public void dnsRepliesMustMatchQuestionNotJustTransactionId() {
+        byte[] q = DnsPacket.buildQuery("example.net", 0xAA10);
+        byte[] a = DnsPacket.buildNxDomain(q, 0, q.length);
+        assertTrue(DnsTcpWire.matchesQuery(q, a));
+        byte[] changedType = a.clone();
+        changedType[changedType.length - 3] = 28;
+        assertFalse(DnsTcpWire.matchesQuery(q, changedType));
+        byte[] changedDomain = a.clone();
+        changedDomain[13] = (byte) 'X';
+        assertFalse(DnsTcpWire.matchesQuery(q, changedDomain));
+        byte[] changedTxId = a.clone();
+        changedTxId[1] ^= 0x04;
+        assertFalse(DnsTcpWire.matchesQuery(q, changedTxId));
+        byte[] mixedCase = a.clone();
+        mixedCase[13] = (byte) 'E';
+        assertTrue(DnsTcpWire.matchesQuery(q, mixedCase));
+    }
+
+    @Test public void randomTcpPacketInputNeverThrows() {
+        java.util.Random random = new java.util.Random(0xFF0011);
+        DnsTcpTunnel state = new DnsTcpTunnel();
+        for (int i = 0; i < 2500; i++) {
+            byte[] b = new byte[random.nextInt(160)];
+            random.nextBytes(b);
+            assertNull(DnsTcpTunnelPacket.parse(b, b.length));
+            DnsTcpTunnel.Result result = state.receive(b, b.length, i);
+            assertNull(result.request);
+            assertTrue(result.replies.isEmpty());
+        }
+    }
+
 }

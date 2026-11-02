@@ -151,3 +151,14 @@ precedence, split TCP DNS frames, long replies spanning multiple TCP segments,
 disconnect/reconnect, stop while a lookup is pending, and network switching.
 Monitor stability and memory under repeated connection attempts. CI tests do
 not replace packet captures or Android device tests.
+
+## Phase 7 — DNS/TCP session hardening
+
+- In-order TCP sequence and acknowledgement checks now precede accepting application data. A stale or future ACK cannot advance the DNS request buffer.
+- TCP resets must carry the expected client sequence. Unrelated or delayed reset packets cannot remove the active session.
+- Duplicate SYNs during a handshake retransmit SYN/ACK, while late SYNs cannot overwrite established TCP sessions.
+- Out-of-order FINs are acknowledged without closing the connection. Invalid SYN/FIN and SYN/RST combinations and port-zero TCP packets are rejected.
+- Upstream DNS replies are accepted only when the transaction ID, domain name (case-insensitive), QTYPE and QCLASS match the original request, avoiding mismatched data under the same transaction ID.
+- Pure-Java regression tests cover stale SYN, unexpected RST, invalid ACK, malformed flags and randomized packet input.
+
+**Remaining limits:** this is intentionally a narrow DNS/TCP implementation, not a general TCP stack. Real-device verification of reordering, retransmits, Wi-Fi/cellular handoff and VPN stop/restart is still required. DNS-over-HTTPS/TLS remains outside scope.
