@@ -59,7 +59,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        SystemBarInsets.apply(findViewById(android.R.id.content).getChildAt(0));
+        SystemBarInsets.apply(((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0));
         statusText = findViewById(R.id.statusText);
         upstreamText = findViewById(R.id.upstreamText);
         stoppedCount = findViewById(R.id.stoppedCount);
