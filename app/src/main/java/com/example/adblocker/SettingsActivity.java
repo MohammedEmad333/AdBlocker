@@ -70,11 +70,33 @@ public final class SettingsActivity extends AppCompatActivity {
             } else {
                 toast(getString(R.string.settings_downloading));
                 new Thread(() -> {
-                    new BlocklistManager(getApplicationContext()).load(true);
+                    BlocklistRefreshStatus.Outcome outcome;
+                    try {
+                        outcome = new BlocklistManager(getApplicationContext())
+                                .refreshWithStatus().outcome();
+                    } catch (RuntimeException e) {
+                        android.util.Log.w("AdBlockList", "Manual list refresh failed", e);
+                        outcome = BlocklistRefreshStatus.Outcome.FAILED;
+                    }
+                    final BlocklistRefreshStatus.Outcome result = outcome;
                     runOnUiThread(() -> {
                         refresh.setEnabled(true);
                         refreshTime();
-                        toast(getString(R.string.settings_refresh_finished));
+                        int message;
+                        switch (result) {
+                            case SUCCESS:
+                                message = R.string.settings_refresh_finished;
+                                break;
+                            case PARTIAL:
+                                message = R.string.settings_refresh_partial;
+                                break;
+                            case NO_SOURCES:
+                                message = R.string.settings_refresh_disabled;
+                                break;
+                            default:
+                                message = R.string.settings_refresh_failed;
+                        }
+                        toast(getString(message));
                     });
                 }, "ManualFilterDownload").start();
             }

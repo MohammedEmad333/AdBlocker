@@ -69,26 +69,34 @@ public class BlocklistManager {
 
     /** Refresh only expired sources unless forced. An offline cache is retained. */
     public Set<String> load(boolean force) {
-        return loadInternal(force, false);
+        return loadInternal(force, false, null);
+    }
+
+    /** Force an update and report source results, including cached fallbacks. */
+    public BlocklistRefreshStatus refreshWithStatus() {
+        BlocklistRefreshStatus status = new BlocklistRefreshStatus();
+        loadInternal(true, false, status);
+        return status;
     }
 
     /** Startup-safe loading: use local cache only, never attempt HTTP. */
     public Set<String> loadCached() {
-        return loadInternal(false, true);
+        return loadInternal(false, true, null);
     }
 
-    private Set<String> loadInternal(boolean force, boolean cacheOnly) {
+    private Set<String> loadInternal(boolean force, boolean cacheOnly,
+                                     BlocklistRefreshStatus status) {
         FilterSettings settings = new FilterSettings(context);
         Set<String> combined = new HashSet<>(200_000);
         boolean anyEnabled = false;
 
         if (settings.sourceEnabled(FilterSettings.STEVENBLACK)) {
             anyEnabled = true;
-            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, cacheOnly, settings));
+            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, cacheOnly, settings, status));
         }
         if (settings.sourceEnabled(FilterSettings.ADAWAY)) {
             anyEnabled = true;
-            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, settings));
+            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, settings, status));
         }
 
         // An explicit choice to disable all remote sources must not be overridden.
@@ -101,7 +109,8 @@ public class BlocklistManager {
     }
 
     private Set<String> loadSource(String sourceUrl, String fileName, boolean force,
-                                   boolean cacheOnly, FilterSettings settings) {
+                                   boolean cacheOnly, FilterSettings settings,
+                                   BlocklistRefreshStatus status) {
         File cache = new File(context.getFilesDir(), fileName);
         boolean fresh = cache.exists()
                 && cache.length() > 1024
@@ -110,7 +119,9 @@ public class BlocklistManager {
             try {
                 download(sourceUrl, cache);
                 settings.markDownloaded();
+                if (status != null) status.recordSuccess();
             } catch (IOException e) {
+                if (status != null) status.recordFailure();
                 Log.w(TAG, "Failed to update " + fileName + ": " + e.getMessage());
             }
         }

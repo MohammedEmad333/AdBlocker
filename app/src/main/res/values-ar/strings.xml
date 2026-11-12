@@ -51,7 +51,10 @@
     <string name="settings_refresh">تنزيل / تحديث القوائم</string>
     <string name="settings_refresh_requested">طُلب تحديث القوائم. افتح الإعدادات مجددًا لمعرفة وقت التنزيل.</string>
     <string name="settings_downloading">جاري تنزيل القوائم المفعّلة…</string>
-    <string name="settings_refresh_finished">انتهى التحديث. القوائم المخزنة محفوظة عند انقطاع الاتصال.</string>
+    <string name="settings_refresh_finished">تم تحديث جميع قوائم الحجب المفعّلة بنجاح.</string>
+    <string name="settings_refresh_partial">تحدّثت بعض القوائم، وبقيت النسخ المخزنة للمصادر التي تعذّر تنزيلها.</string>
+    <string name="settings_refresh_failed">فشل تنزيل القوائم، وتم الاحتفاظ بالنسخ المخزنة.</string>
+    <string name="settings_refresh_disabled">فعّل مصدر حجب واحدًا على الأقل قبل التحديث.</string>
     <string name="settings_https_hint">تستخدم المصادر HTTPS، وتبقى النسخة السابقة عند فشل التحديث.</string>
     <string name="settings_allowed_domains">النطاقات المسموحة (تتجاوز قوائم الحظر)</string>
     <string name="settings_blocked_domains">النطاقات المحظورة (تشمل النطاقات الفرعية)</string>
