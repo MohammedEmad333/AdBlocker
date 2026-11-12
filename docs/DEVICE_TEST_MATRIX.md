@@ -2,24 +2,24 @@
 
 CI checks lint, Java unit tests and build artifacts. **Real VPN behavior and UI must still be verified on Android devices.** Record model, Android version, network and sanitized evidence.
 
-| Scenario | Android 8/9 | Android 13 | Android 14/15 |
-| --- | --- | --- | --- |
-| Install and grant VPN consent | Pending | Pending | Pending |
-| Start, stop, cancel during initialization | Pending | Pending | Pending |
-| Known blocked and allowed DNS domains | Pending | Pending | Pending |
-| Custom allowlist and blocklist precedence | Pending | Pending | Pending |
-| Service/notification in background | Pending | Pending | Pending |
-| Wi-Fi to cellular handoff | Pending | Pending | Pending |
-| Offline restart with stale cache | Pending | Pending | Pending |
-| Manual list refresh and malformed response | Pending | Pending | Pending |
-| Per-app exclusions after VPN restart | Pending | Pending | Pending |
-| Arabic RTL, English, system language | Pending | Pending | Pending |
-| DNS activity search and bounded history | Pending | Pending | Pending |
-| DNS burst, memory usage and battery | Pending | Pending | Pending |
-| App-originated DNS/TCP over IPv4 and IPv6 | Pending | Pending | Pending |
-| Split DNS/TCP request, large response, retransmission | Pending | Pending | Pending |
-| TCP late SYN/RST and invalid ACK handling | Pending | Pending | Pending |
-| Release signing/upgrade validation | Pending | Pending | Pending |
+| Scenario | Android 8/9 | Android 13 | Android 14/15 | Android 16 |
+| --- | --- | --- | --- | --- |
+| Install and grant VPN consent | Pending | Pending | Pending  Pending |
+| Start, stop, cancel during initialization | Pending | Pending | Pending  Pending |
+| Known blocked and allowed DNS domains | Pending | Pending | Pending  Pending |
+| Custom allowlist and blocklist precedence | Pending | Pending | Pending  Pending |
+| Service/notification in background | Pending | Pending | Pending  Pending |
+| Wi-Fi to cellular handoff | Pending | Pending | Pending  Pending |
+| Offline restart with stale cache | Pending | Pending | Pending  Pending |
+| Manual list refresh and malformed response | Pending | Pending | Pending  Pending |
+| Per-app exclusions after VPN restart | Pending | Pending | Pending  Pending |
+| Arabic RTL, English, system language | Pending | Pending | Pending  Pending |
+| DNS activity search and bounded history | Pending | Pending | Pending  Pending |
+| DNS burst, memory usage and battery | Pending | Pending | Pending  Pending |
+| App-originated DNS/TCP over IPv4 and IPv6 | Pending | Pending | Pending  Pending |
+| Split DNS/TCP request, large response, retransmission | Pending | Pending | Pending  Pending |
+| TCP late SYN/RST and invalid ACK handling | Pending | Pending | Pending  Pending |
+| Release signing/upgrade validation | Pending | Pending | Pending  Pending |
 
 Useful local commands:
 
@@ -34,3 +34,17 @@ adb logcat -d -s AdBlockVpn AdBlockList
 Logcat may contain network metadata. Obtain consent and redact domain names, tokens or private data before sharing results. Full VPN products cannot always run together.
 
 **Release gate:** Do not describe the app as production-validated until a signed APK passes the matrix on representative devices and critical defects are resolved.
+
+## Android 16 automated smoke check
+
+The separate **Android 16 emulator smoke** workflow launches an API 36
+emulator on PRs that change the Android app or its build, and can also be
+started manually via GitHub Actions. It verifies that the debug APK installs,
+that the launcher activity starts, survives portrait/landscape transitions,
+and can be relaunched without the process disappearing.
+
+This is a narrow emulator smoke test only. It does **not** prove DNS forwarding,
+VPN consent/foreground service behavior, per-app exclusions, encrypted DNS
+compatibility, display-cutout layout or battery consumption. All cells in the
+physical-device matrix above remain **Pending** until tested and recorded on
+real devices. Do not treat an emulator green check as release approval.
