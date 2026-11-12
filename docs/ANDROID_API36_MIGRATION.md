@@ -23,3 +23,15 @@ package ID and signing configuration are unchanged.
 - This PR does not change DNS routing, encryption support, Android UI insets,
   application ID, or release version. Release requires a separate signoff after
   running the device test matrix.
+
+## System bar and display-cutout protection
+
+The dashboard, settings and DNS activity screen apply status/navigation-bar and
+cutout insets to their scrollable roots. This preserves each view's original
+padding and recalculates from it on every inset dispatch, avoiding the common
+padding accumulation bug after rotation or system UI changes. Child views may
+still receive other insets, including keyboard/IME insets.
+
+Validation on Android 16 is required for gesture and three-button navigation,
+portrait/landscape, display cutouts, small screens, large font and the keyboard.
+Pure-Java tests check padding calculations, not visual rendering.
