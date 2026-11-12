@@ -114,6 +114,50 @@ public class DnsTcpTunnelTest {
         assertTrue(r.replies.isEmpty());
     }
 
+    @Test public void wrongSequenceAckCannotAdvanceSegmentedResponse() {
+        Session s = new Session(4, 30103);
+        DnsTcpTunnel.Request req = s.query("example.com", false);
+        byte[] large = Arrays.copyOf(DnsPacket.buildNxDomain(req.dns, 0, req.dns.length), 1300);
+        DnsTcpTunnel.Result first = s.engine.complete(req, large, s.now);
+        assertEquals(1, first.replies.size());
+        assertEquals(512, first.replies.get(0).length - 40);
+        long nextAck = DnsTcpTunnelPacket.plus(s.ack, 512);
+
+        byte[] forged = client(4, s.port, s.seq + 20, nextAck,
+                DnsTcpTunnelPacket.ACK, new byte[0]);
+        DnsTcpTunnel.Result denied = s.engine.receive(forged, forged.length, ++s.now);
+        assertEquals(1, denied.replies.size());
+        assertEquals(DnsTcpTunnelPacket.ACK, denied.replies.get(0)[33] & 255);
+        assertEquals(40, denied.replies.get(0).length);
+
+        // A legitimate in-order ACK must still advance to the next chunk.
+        s.ack = nextAck;
+        DnsTcpTunnel.Result second = s.send(DnsTcpTunnelPacket.ACK, new byte[0]);
+        assertEquals(1, second.replies.size());
+        assertEquals(512, second.replies.get(0).length - 40);
+    }
+
+    @Test public void wrongSequenceDataCannotAcknowledgePendingResponse() {
+        Session s = new Session(6, 30104);
+        DnsTcpTunnel.Request req = s.query("example.org", false);
+        byte[] large = Arrays.copyOf(DnsPacket.buildNxDomain(req.dns, 0, req.dns.length), 800);
+        DnsTcpTunnel.Result first = s.engine.complete(req, large, s.now);
+        assertEquals(1, first.replies.size());
+        long nextAck = DnsTcpTunnelPacket.plus(s.ack, 512);
+
+        byte[] unexpected = client(6, s.port, s.seq + 1, nextAck,
+                DnsTcpTunnelPacket.ACK | DnsTcpTunnelPacket.PSH, new byte[]{1});
+        DnsTcpTunnel.Result denied = s.engine.receive(unexpected, unexpected.length, ++s.now);
+        assertEquals(1, denied.replies.size());
+        assertEquals(40 + 20, denied.replies.get(0).length);
+        assertEquals(DnsTcpTunnelPacket.ACK, denied.replies.get(0)[53] & 255);
+
+        s.ack = nextAck;
+        DnsTcpTunnel.Result next = s.send(DnsTcpTunnelPacket.ACK, new byte[0]);
+        assertEquals(1, next.replies.size());
+        assertEquals(290, next.replies.get(0).length - 60);
+    }
+
     @Test public void flowCapacityTimeoutAndRetransmission() {
         DnsTcpTunnel engine = new DnsTcpTunnel();
         for (int i = 0; i < DnsTcpTunnel.MAX_FLOWS; i++) {
