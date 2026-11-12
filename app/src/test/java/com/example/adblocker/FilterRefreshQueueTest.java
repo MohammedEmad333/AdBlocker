@@ -8,8 +8,7 @@ public class FilterRefreshQueueTest {
         FilterRefreshQueue q = new FilterRefreshQueue();
         assertTrue(q.request(false));
         assertFalse(q.request(false));
-        assertEquals(Boolean.FALSE, q.next());
-        assertEquals(Boolean.FALSE, q.next()); // pending coalesced while running
+        assertEquals(Boolean.FALSE, q.next()); // requests coalesced before worker ran
         assertNull(q.next());
         assertTrue(q.request(true));
         assertEquals(Boolean.TRUE, q.next());
