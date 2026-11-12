@@ -190,3 +190,17 @@ not replace packet captures or Android device tests.
 - Pure-Java regression tests cover response counting, session reset, concurrent
   updates and probe reply mismatch/bounds. Android device verification remains
   required before release.
+
+## Cache-first VPN startup
+
+- Initial VPN establishment loads enabled blocklists from existing local cache only.
+  Expired or absent lists are refreshed by the existing serialized background
+  worker immediately **after** the VPN tunnel is established.
+- Until the first background download completes, a fresh installation uses
+  the small built-in fallback list, plus locally configured domain rules.
+  This is an intentional temporary protection limitation, not full list
+  coverage. Disabled sources remain disabled.
+- Startup still probes upstream DNS resolvers before establishing the tunnel;
+  this change avoids HTTPS downloads on the startup path, not resolver probe
+  latency. Measure first-run activation, restart, offline activation and
+  list refresh on actual Android devices before release.

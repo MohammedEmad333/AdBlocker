@@ -69,17 +69,26 @@ public class BlocklistManager {
 
     /** Refresh only expired sources unless forced. An offline cache is retained. */
     public Set<String> load(boolean force) {
+        return loadInternal(force, false);
+    }
+
+    /** Startup-safe loading: use local cache only, never attempt HTTP. */
+    public Set<String> loadCached() {
+        return loadInternal(false, true);
+    }
+
+    private Set<String> loadInternal(boolean force, boolean cacheOnly) {
         FilterSettings settings = new FilterSettings(context);
         Set<String> combined = new HashSet<>(200_000);
         boolean anyEnabled = false;
 
         if (settings.sourceEnabled(FilterSettings.STEVENBLACK)) {
             anyEnabled = true;
-            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, settings));
+            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, cacheOnly, settings));
         }
         if (settings.sourceEnabled(FilterSettings.ADAWAY)) {
             anyEnabled = true;
-            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, settings));
+            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, settings));
         }
 
         // An explicit choice to disable all remote sources must not be overridden.
@@ -92,12 +101,12 @@ public class BlocklistManager {
     }
 
     private Set<String> loadSource(String sourceUrl, String fileName, boolean force,
-                                   FilterSettings settings) {
+                                   boolean cacheOnly, FilterSettings settings) {
         File cache = new File(context.getFilesDir(), fileName);
         boolean fresh = cache.exists()
                 && cache.length() > 1024
                 && System.currentTimeMillis() - cache.lastModified() < MAX_CACHE_AGE_MS;
-        if (force || !fresh) {
+        if (!cacheOnly && (force || !fresh)) {
             try {
                 download(sourceUrl, cache);
                 settings.markDownloaded();

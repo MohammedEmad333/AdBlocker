@@ -173,7 +173,8 @@ public class AdBlockVpnService extends VpnService {
 
     private void runVpn() {
         try {
-            filterPolicy = readPolicy(false);
+            // Do not block initial VPN startup on slow HTTPS blocklist downloads.
+            filterPolicy = readPolicyCached();
             remoteDomainCount = filterPolicy.downloadedDomainCount();
             if (stopRequested) return;
             Log.i(TAG, "Blocklist ready: " + filterPolicy.downloadedDomainCount()
@@ -242,6 +243,9 @@ public class AdBlockVpnService extends VpnService {
             filterScheduler = Executors.newSingleThreadScheduledExecutor();
             filterScheduler.scheduleWithFixedDelay(() -> requestFilterRefresh(false),
                     30, 30, TimeUnit.MINUTES);
+            // Download expired or missing lists only after the tunnel is ready.
+            // The refresh worker uses protected/bound sockets as appropriate.
+            requestFilterRefresh(false);
             tcpScheduler = Executors.newSingleThreadScheduledExecutor();
             tcpScheduler.scheduleWithFixedDelay(() -> {
                 if (stopRequested) return;
@@ -467,6 +471,13 @@ public class AdBlockVpnService extends VpnService {
     private DomainRules.Policy readPolicy(boolean forceDownload) {
         FilterSettings settings = new FilterSettings(this);
         Set<String> remote = new BlocklistManager(this).load(forceDownload);
+        return new DomainRules.Policy(settings.allowedDomains(),
+                settings.blockedDomains(), remote);
+    }
+
+    private DomainRules.Policy readPolicyCached() {
+        FilterSettings settings = new FilterSettings(this);
+        Set<String> remote = new BlocklistManager(this).loadCached();
         return new DomainRules.Policy(settings.allowedDomains(),
                 settings.blockedDomains(), remote);
     }
