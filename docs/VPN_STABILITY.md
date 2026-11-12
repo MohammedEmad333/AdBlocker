@@ -176,3 +176,17 @@ not replace packet captures or Android device tests.
 - An installed APK still requires the physical device acceptance checklist
   before release. No support for encrypted DNS, full-traffic VPN, or
   always-on/lockdown is implied.
+
+## DNS response accounting and resolver probe validation
+
+- The dashboard's Allowed figure counts **successfully written** DNS replies
+  for non-blocked questions, not merely total queries minus blocked queries.
+  Queued, timed-out, and locally failed requests are no longer presented as
+  successful. The live history still denotes filtering decisions rather than
+  whether upstream name resolution succeeded.
+- The upstream resolver discovery probe verifies response QR, transaction ID,
+  queried domain, QTYPE and QCLASS. A response that only echoes the transaction
+  ID is insufficient to select an upstream.
+- Pure-Java regression tests cover response counting, session reset, concurrent
+  updates and probe reply mismatch/bounds. Android device verification remains
+  required before release.
