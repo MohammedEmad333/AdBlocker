@@ -63,6 +63,7 @@ public class AdBlockVpnService extends VpnService {
     public static volatile boolean    isRunning    = false;
     public static volatile boolean    isStarting   = false;
     public static final AtomicInteger blockedCount = new AtomicInteger(0);
+    public static final DnsQueryStatistics QUERY_STATS = new DnsQueryStatistics();
 
     // --- live diagnostics, read by MainActivity ---
     public static final AtomicInteger packetsRead = new AtomicInteger(0);
@@ -94,6 +95,7 @@ public class AdBlockVpnService extends VpnService {
         forwarded.set(0); answered.set(0); timeouts.set(0); errors.set(0);
         lastDomain = "-"; lastError = "-";
         HISTORY.clear();
+        QUERY_STATS.reset();
         remoteDomainCount = 0;
     }
 
@@ -393,11 +395,12 @@ public class AdBlockVpnService extends VpnService {
         for (byte[] packet : packets) writeReply(out, packet);
     }
 
-    private void answerTcpRequest(DnsTcpTunnel.Request request, byte[] dns,
+    private boolean answerTcpRequest(DnsTcpTunnel.Request request, byte[] dns,
                                   FileOutputStream out) throws IOException {
         DnsTcpTunnel.Result result = tcpTunnel.complete(request, dns,
                 System.currentTimeMillis());
         writeTcpPackets(out, result.replies);
+        return !result.replies.isEmpty();
     }
 
     /** Native TCP/53 first; fallback UDP/53 if the upstream blocks TCP. */
@@ -419,7 +422,10 @@ public class AdBlockVpnService extends VpnService {
                 answered.incrementAndGet();
                 consecutiveFailures.set(0);
             }
-            if (!stopRequested) answerTcpRequest(request, response, out);
+            if (!stopRequested && answerTcpRequest(request, response, out)
+                    && (response[3] & 15) != 2) {
+                QUERY_STATS.recordAllowedResponse();
+            }
         } catch (IOException e) {
             if (!stopRequested) {
                 errors.incrementAndGet();
@@ -551,6 +557,7 @@ public class AdBlockVpnService extends VpnService {
                 return;
             }
             writeReply(out, DnsTunnelPacket.wrapReply(packet, parsed, dnsResponse));
+            if ((dnsResponse[3] & 15) != 2) QUERY_STATS.recordAllowedResponse();
             answered.incrementAndGet();
             consecutiveFailures.set(0);
         } catch (SocketTimeoutException e) {
@@ -763,7 +770,7 @@ public class AdBlockVpnService extends VpnService {
             byte[] buf = new byte[512];
             DatagramPacket r = new DatagramPacket(buf, buf.length);
             s.receive(r);
-            return r.getLength() >= 12 && buf[0] == q[0] && buf[1] == q[1];
+            return DnsResolverProbe.accepts(q, buf, r.getLength());
         } catch (Exception e) {
             return false;
         } finally {

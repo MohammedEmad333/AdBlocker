@@ -132,7 +132,8 @@ public final class MainActivity extends AppCompatActivity {
         boolean starting = AdBlockVpnService.isStarting;
         int blocked = Math.max(0, AdBlockVpnService.blockedCount.get());
         int queried = Math.max(0, AdBlockVpnService.queriesSeen.get());
-        int allowed = Math.max(0, queried - blocked);
+        // Failed, timed-out and still-pending queries are not successful answers.
+        int allowed = AdBlockVpnService.QUERY_STATS.successfulAllowedResponses();
         int rate = queried == 0 ? 0 : (int) Math.round(100.0 * blocked / queried);
 
         statusText.setText(running ? R.string.protection_on
