@@ -32,17 +32,27 @@ public final class DnsTcpWire {
     }
 
     public static boolean matchesQuery(byte[] query, byte[] response) {
+        return response != null && matchesQuery(query, response, response.length);
+    }
+
+    /**
+     * Verify only the bytes actually received from a datagram socket. The
+     * backing buffer may be larger and must not act as a zero-filled suffix.
+     */
+    public static boolean matchesQuery(byte[] query, byte[] response, int receivedLength) {
         if (query == null || response == null || query.length < 17
-                || response.length < 17 || query[0] != response[0]
-                || query[1] != response[1] || (response[2] & 0x80) == 0)
+                || receivedLength < 17 || receivedLength > response.length
+                || query[0] != response[0] || query[1] != response[1]
+                || (response[2] & 0x80) == 0
+                || (response[2] & 0x78) != (query[2] & 0x78))
             return false;
-        // Transaction ID alone is insufficient: ensure the reply contains the
-        // *same question*, QTYPE and QCLASS. Name comparisons ignore case.
+        // Require the original DNS opcode and the complete original question.
+        // Transaction ID alone is insufficient; ignore case in DNS names.
         int qEnd = DnsPacket.questionEnd(query, 0, query.length);
-        int aEnd = DnsPacket.questionEnd(response, 0, response.length);
+        int aEnd = DnsPacket.questionEnd(response, 0, receivedLength);
         if (qEnd < 0 || aEnd < 0) return false;
         String asked = DnsPacket.extractDomain(query, 0, query.length);
-        String replied = DnsPacket.extractDomain(response, 0, response.length);
+        String replied = DnsPacket.extractDomain(response, 0, receivedLength);
         if (asked == null || !asked.equals(replied)) return false;
         for (int i = 1; i <= 4; i++) {
             if (query[qEnd - i] != response[aEnd - i]) return false;
