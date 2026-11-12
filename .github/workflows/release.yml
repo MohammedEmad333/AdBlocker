@@ -19,12 +19,12 @@ jobs:
           distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.6'
+          gradle-version: '8.13'
           cache-disabled: true
       - name: Install Android platform
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
           echo "sdk.dir=$ANDROID_HOME" > local.properties
       - name: Build and verify signed release
         env:
@@ -48,7 +48,7 @@ jobs:
           gradle --no-daemon --stacktrace lintRelease testDebugUnitTest assembleRelease
           apk="app/build/outputs/apk/release/app-release.apk"
           test -s "$apk"
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
           (cd app/build/outputs/apk/release && sha256sum app-release.apk > SHA256SUMS)
           unzip -t "$apk" >/dev/null
       - name: Upload signed APK and checksum
