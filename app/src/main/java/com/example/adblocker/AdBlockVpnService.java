@@ -450,7 +450,7 @@ public class AdBlockVpnService extends VpnService {
             DatagramPacket reply = new DatagramPacket(received, received.length);
             socket.receive(reply);
             if (reply.getLength() < 12
-                    || !DnsTcpWire.matchesQuery(dns, received)
+                    || !DnsTcpWire.matchesQuery(dns, received, reply.getLength())
                     || (received[2] & 0x02) != 0) return null;
             return Arrays.copyOf(received, reply.getLength());
         } catch (SocketTimeoutException e) {
@@ -548,7 +548,7 @@ public class AdBlockVpnService extends VpnService {
             byte[] buf = new byte[4096];
             DatagramPacket resp = new DatagramPacket(buf, buf.length);
             sock.receive(resp);
-            if (resp.getLength() < 12 || !DnsTcpWire.matchesQuery(query, buf)) {
+            if (resp.getLength() < 12 || !DnsTcpWire.matchesQuery(query, buf, resp.getLength())) {
                 throw new IOException("Invalid DNS transaction or response");
             }
 
