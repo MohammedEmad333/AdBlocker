@@ -162,3 +162,17 @@ not replace packet captures or Android device tests.
 - Pure-Java regression tests cover stale SYN, unexpected RST, invalid ACK, malformed flags and randomized packet input.
 
 **Remaining limits:** this is intentionally a narrow DNS/TCP implementation, not a general TCP stack. Real-device verification of reordering, retransmits, Wi-Fi/cellular handoff and VPN stop/restart is still required. DNS-over-HTTPS/TLS remains outside scope.
+
+## Stability and safety maintenance (November 2026)
+
+- Disable Android Always-on VPN for this DNS-only tunnel. Android's lockdown
+  option can otherwise block all unrelated traffic because this app is not
+  designed to carry or forward general IP packets. Test with a clean install
+  and confirm normal browsing works when the app's protection is off.
+- Reload requests for custom rules and source settings are coalesced while
+  a prior reload is active; forced updates retain their priority and are
+  replayed after an ongoing refresh rather than silently dropped.
+- The filter update queue has dedicated pure-Java concurrency regression tests.
+- An installed APK still requires the physical device acceptance checklist
+  before release. No support for encrypted DNS, full-traffic VPN, or
+  always-on/lockdown is implied.

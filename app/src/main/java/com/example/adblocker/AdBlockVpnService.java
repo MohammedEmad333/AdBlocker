@@ -103,7 +103,7 @@ public class AdBlockVpnService extends VpnService {
     private volatile ScheduledExecutorService filterScheduler;
     private volatile ScheduledExecutorService tcpScheduler;
     private final DnsTcpTunnel tcpTunnel = new DnsTcpTunnel();
-    private final AtomicBoolean filterRefreshBusy = new AtomicBoolean(false);
+    private final FilterRefreshQueue filterRefreshQueue = new FilterRefreshQueue();
     private volatile DomainRules.Policy filterPolicy = new DomainRules.Policy(
             Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
     private volatile boolean     stopRequested;
@@ -267,6 +267,7 @@ public class AdBlockVpnService extends VpnService {
             unwatchNetworks();
             if (dnsPool != null) dnsPool.shutdownNow();
             if (filterScheduler != null) filterScheduler.shutdownNow();
+            filterRefreshQueue.reset();
             if (tcpScheduler != null) tcpScheduler.shutdownNow();
             tcpTunnel.clear();
             closeTun();
@@ -464,29 +465,35 @@ public class AdBlockVpnService extends VpnService {
                 settings.blockedDomains(), remote);
     }
 
-    /** Serialize background updates and publish a single immutable policy snapshot. */
+    /** Coalesce concurrent changes, retaining a forced refresh while a reload runs. */
     private void requestFilterRefresh(boolean force) {
         ScheduledExecutorService scheduler = filterScheduler;
-        if (stopRequested || scheduler == null || scheduler.isShutdown()
-                || !filterRefreshBusy.compareAndSet(false, true)) return;
+        if (stopRequested || scheduler == null || scheduler.isShutdown()) return;
+        if (!filterRefreshQueue.request(force)) return;
         try {
             scheduler.execute(() -> {
                 try {
-                    DomainRules.Policy updated = readPolicy(force);
-                    if (!stopRequested) {
-                        filterPolicy = updated;
-                        remoteDomainCount = updated.downloadedDomainCount();
-                        Log.i(TAG, "Filter policy refreshed: " + updated.downloadedDomainCount()
-                                + " remote domains");
+                    Boolean next;
+                    while (!stopRequested && (next = filterRefreshQueue.next()) != null) {
+                        try {
+                            DomainRules.Policy updated = readPolicy(next);
+                            if (!stopRequested) {
+                                filterPolicy = updated;
+                                remoteDomainCount = updated.downloadedDomainCount();
+                                Log.i(TAG, "Filter policy refreshed: "
+                                        + updated.downloadedDomainCount() + " remote domains");
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Filter refresh failed; keeping previous policy", e);
+                        }
                     }
-                } catch (Exception e) {
-                    Log.w(TAG, "Filter refresh failed; keeping previous policy", e);
                 } finally {
-                    filterRefreshBusy.set(false);
+                    // On cancellation/shutdown the next VPN session starts cleanly.
+                    if (stopRequested) filterRefreshQueue.reset();
                 }
             });
-        } catch (java.util.concurrent.RejectedExecutionException e) {
-            filterRefreshBusy.set(false);
+        } catch (RejectedExecutionException e) {
+            filterRefreshQueue.reset();
         }
     }
 
