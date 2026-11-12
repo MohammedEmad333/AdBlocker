@@ -46,6 +46,7 @@ public final class SettingsActivity extends AppCompatActivity {
         root.setPadding(dp(22), dp(24), dp(22), dp(32));
         scroll.addView(root);
         setContentView(scroll);
+        SystemBarInsets.apply(scroll);
 
         Button back = button(getString(R.string.settings_back));
         back.setOnClickListener(v -> finish());
