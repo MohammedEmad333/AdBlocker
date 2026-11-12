@@ -22,12 +22,12 @@ jobs:
           distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.6'
+          gradle-version: '8.13'
           cache-disabled: true
       - name: Install Android platform
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
           echo "sdk.dir=$ANDROID_HOME" > local.properties
       - name: Lint, unit tests and debug APK
         run: gradle --no-daemon --stacktrace lintDebug testDebugUnitTest assembleDebug
@@ -37,7 +37,7 @@ jobs:
           apk="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$apk"
           unzip -t "$apk" >/dev/null
-          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$apk" | grep "package: name='com.example.adblocker'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | grep "package: name='com.example.adblocker'"
           (cd app/build/outputs/apk/debug && sha256sum app-debug.apk > SHA256SUMS)
       - name: Upload lint and test reports
         if: always()
