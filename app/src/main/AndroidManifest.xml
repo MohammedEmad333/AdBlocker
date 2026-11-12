@@ -87,6 +87,13 @@
                 <action android:name="android.net.VpnService" />
             </intent-filter>
 
+            <!-- This is a DNS-only tunnel, not a full-traffic VPN.
+                 Disable Always-on/lockdown so Android cannot force all traffic
+                 through this deliberately limited implementation. -->
+            <meta-data
+                android:name="android.net.VpnService.SUPPORTS_ALWAYS_ON"
+                android:value="false" />
+
             <!-- Required companion to foregroundServiceType="specialUse" on API 34+.
                  Older OS versions ignore this element entirely. -->
             <property
