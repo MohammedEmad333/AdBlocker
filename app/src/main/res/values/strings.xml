@@ -51,7 +51,10 @@
     <string name="settings_refresh">Download / refresh lists</string>
     <string name="settings_refresh_requested">Refresh requested. Reopen settings to see the download time.</string>
     <string name="settings_downloading">Downloading enabled lists…</string>
-    <string name="settings_refresh_finished">Refresh finished. Cached lists are preserved offline.</string>
+    <string name="settings_refresh_finished">All enabled blocklists updated successfully.</string>
+    <string name="settings_refresh_partial">Some lists updated; unavailable sources kept their cached copies.</string>
+    <string name="settings_refresh_failed">Download failed. Existing cached lists were kept.</string>
+    <string name="settings_refresh_disabled">Enable a blocklist source before refreshing.</string>
     <string name="settings_https_hint">Sources use HTTPS and retain the old cache if updates fail.</string>
     <string name="settings_allowed_domains">Allowed domains (override all lists)</string>
     <string name="settings_blocked_domains">Blocked domains (include subdomains)</string>
