@@ -39,6 +39,7 @@ public final class ActivityLogActivity extends AppCompatActivity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_log);
+        SystemBarInsets.apply(findViewById(android.R.id.content).getChildAt(0));
         findViewById(R.id.logBackButton).setOnClickListener(v -> finish());
         search = findViewById(R.id.domainSearch);
         filters = findViewById(R.id.logFilters);
