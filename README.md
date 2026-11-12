@@ -12,7 +12,7 @@ AdBlocker is a DNS-based Android ad and tracker blocker using Java and Android V
 
 ## Development
 
-The project builds with Java 17, Gradle 8.6, Android SDK 34. Install Gradle 8.6 or open it in Android Studio; this repository currently does not commit a Gradle wrapper JAR or launcher scripts.
+The project builds with Java 17, Gradle 8.13, Android SDK 36. Install Gradle 8.13 or open it in a compatible Android Studio; this repository currently does not commit a Gradle wrapper JAR or launcher scripts.
 
 Run:
 
