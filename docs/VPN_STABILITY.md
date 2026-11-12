@@ -217,3 +217,13 @@ not replace packet captures or Android device tests.
   tuning; these limits prioritize predictable startup time. The six-second
   bound applies to probe wait time, not to all system or Android startup steps.
 - Regression tests verify deadline arithmetic and boundary conditions.
+
+## Datagram response validation (November 2026)
+
+The upstream DNS UDP relay and resolver probe now validate only the actual
+received datagram length, not the entire larger zero-filled receive buffer.
+Accepted replies must also preserve the DNS opcode of the original question,
+in addition to the existing transaction-ID, QNAME, QTYPE and QCLASS checks.
+This applies to upstream replies without changing supported DNS transport
+coverage. Pure-Java regression tests cover short datagrams, buffer bounds,
+wrong opcodes and mismatched questions.
