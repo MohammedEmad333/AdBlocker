@@ -122,6 +122,13 @@ public final class DnsTcpTunnel {
         // The sender can retransmit older ACKs, but must not fabricate ACKs
         // for bytes we never sent or attach DNS bytes to a stale ACK.
         if (incoming.ack != flow.nextServer) return result;
+        // ACKs are valid only from the current in-order stream position.
+        // Otherwise a forged/out-of-window segment could acknowledge a reply
+        // and advance the next outbound DNS chunk without valid client state.
+        if (incoming.seq != flow.nextClient) {
+            ackOnly(flow, result.replies);
+            return result;
+        }
         flow.lastSeen = now;
         flow.lastClient = incoming;
 
