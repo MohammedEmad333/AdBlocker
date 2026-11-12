@@ -33,7 +33,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class AdBlockVpnService extends VpnService {
@@ -110,7 +109,7 @@ public class AdBlockVpnService extends VpnService {
             Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
     private volatile boolean     stopRequested;
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
-    private final AtomicBoolean refreshingResolver = new AtomicBoolean(false);
+    private final ResolverRefreshQueue<Network> resolverRefreshQueue = new ResolverRefreshQueue<>();
     private volatile InetAddress upstream;    // the resolver that actually answers
     private volatile Network     underlying;  // the real (non-VPN) network
     private volatile ConnectivityManager.NetworkCallback networkCallback;
@@ -274,6 +273,7 @@ public class AdBlockVpnService extends VpnService {
             if (dnsPool != null) dnsPool.shutdownNow();
             if (filterScheduler != null) filterScheduler.shutdownNow();
             filterRefreshQueue.reset();
+            resolverRefreshQueue.reset();
             if (tcpScheduler != null) tcpScheduler.shutdownNow();
             tcpTunnel.clear();
             closeTun();
@@ -674,36 +674,51 @@ public class AdBlockVpnService extends VpnService {
         requestResolverRefresh(null);
     }
 
-    /** One guarded worker: the callback never does synchronous network I/O. */
+    /** Serialize recovery probes and replay changes received during an active probe. */
     private void requestResolverRefresh(Network preferred) {
-        if (stopRequested || !isRunning
-                || !refreshingResolver.compareAndSet(false, true)) return;
+        if (stopRequested || !isRunning || !resolverRefreshQueue.request(preferred)) return;
         Thread recovery = new Thread(() -> {
             try {
-                Network candidate = usableNetwork(preferred) ? preferred : pickUnderlying();
-                InetAddress dns = candidate == null ? null : pickUpstream(candidate);
-                if (stopRequested) return;
-                if (dns != null) {
-                    underlying = candidate;
-                    upstream = dns;
-                    upstreamInfo = dns.getHostAddress();
-                    consecutiveFailures.set(0);
+                ResolverRefreshQueue.Request<Network> request;
+                while (!stopRequested && (request = resolverRefreshQueue.next()) != null) {
                     try {
-                        setUnderlyingNetworks(new Network[]{candidate});
+                        Network candidate = usableNetwork(request.preferred)
+                                ? request.preferred : pickUnderlying();
+                        InetAddress dns = candidate == null ? null : pickUpstream(candidate);
+                        if (stopRequested) return;
+                        // A newer network event arrived during DNS probing. Do not
+                        // publish a stale result before processing that event.
+                        if (resolverRefreshQueue.hasPending()) continue;
+                        if (dns != null) {
+                            underlying = candidate;
+                            upstream = dns;
+                            upstreamInfo = dns.getHostAddress();
+                            consecutiveFailures.set(0);
+                            try {
+                                setUnderlyingNetworks(new Network[]{candidate});
+                            } catch (RuntimeException e) {
+                                Log.w(TAG, "Could not update underlying network", e);
+                            }
+                        } else if (!usableNetwork(underlying)) {
+                            underlying = null;
+                            upstream = null;
+                            upstreamInfo = "waiting for network";
+                        }
                     } catch (RuntimeException e) {
-                        Log.w(TAG, "Could not update underlying network", e);
+                        Log.w(TAG, "DNS recovery probe failed", e);
                     }
-                } else if (!usableNetwork(underlying)) {
-                    underlying = null;
-                    upstream = null;
-                    upstreamInfo = "waiting for network";
                 }
             } finally {
-                refreshingResolver.set(false);
+                if (stopRequested) resolverRefreshQueue.reset();
             }
         }, "AdBlockDnsRecovery");
         recovery.setDaemon(true);
-        recovery.start();
+        try {
+            recovery.start();
+        } catch (RuntimeException e) {
+            resolverRefreshQueue.reset();
+            Log.w(TAG, "Could not start DNS recovery worker", e);
+        }
     }
 
     /** The real internet-capable network behind us -- wifi or cellular, never a VPN. */

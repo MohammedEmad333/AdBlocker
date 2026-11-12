@@ -227,3 +227,18 @@ in addition to the existing transaction-ID, QNAME, QTYPE and QCLASS checks.
 This applies to upstream replies without changing supported DNS transport
 coverage. Pure-Java regression tests cover short datagrams, buffer bounds,
 wrong opcodes and mismatched questions.
+
+## Coalesced network recovery (November 2026)
+
+- DNS resolver recovery requests are queued as a single latest-network hint
+  while a previous network probe is in progress. They are no longer dropped
+  by a simple busy flag, so a Wi-Fi-to-cellular transition can be re-evaluated
+  after a slow probe against the previous network.
+- A null preference explicitly means reselect the best usable underlying
+  network and must not be confused with an empty queue.
+- Probe results are discarded when newer network-change notifications are
+  already waiting; the recovery thread drains pending changes serially.
+- The recovery queue is reset on VPN shutdown. Six pure-Java regression tests
+  cover overlapping, replaced and null network events plus reset behavior.
+- Network handoff still requires physical Android verification on multiple
+  transports, including rapid Wi-Fi/cellular changes and loss of connectivity.
