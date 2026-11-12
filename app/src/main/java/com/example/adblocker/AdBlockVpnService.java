@@ -755,8 +755,17 @@ public class AdBlockVpnService extends VpnService {
             } catch (Exception ignored) {}
         }
 
+        final long startedNanos = System.nanoTime();
         for (InetAddress c : candidates) {
-            if (answers(c, net)) {
+            if (stopRequested || Thread.currentThread().isInterrupted()) return null;
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(
+                    System.nanoTime() - startedNanos);
+            int timeoutMs = DnsProbeBudget.timeoutMillis(elapsedMs);
+            if (timeoutMs == 0) {
+                Log.w(TAG, "DNS resolver discovery budget exhausted");
+                break;
+            }
+            if (answers(c, net, timeoutMs)) {
                 Log.i(TAG, "upstream chosen: " + c.getHostAddress());
                 return c;
             }
@@ -766,13 +775,13 @@ public class AdBlockVpnService extends VpnService {
     }
 
     /** One real lookup against a candidate resolver. */
-    private boolean answers(InetAddress server, Network net) {
+    private boolean answers(InetAddress server, Network net, int timeoutMs) {
         DatagramSocket s = null;
         try {
             s = new DatagramSocket();
             protect(s);
             if (net != null) { try { net.bindSocket(s); } catch (Exception ignored) {} }
-            s.setSoTimeout(2500);
+            s.setSoTimeout(timeoutMs);
 
             byte[] q = DnsPacket.buildQuery("example.com", 0x4A21);
             s.connect(server, 53);
