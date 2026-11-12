@@ -204,3 +204,16 @@ not replace packet captures or Android device tests.
   this change avoids HTTPS downloads on the startup path, not resolver probe
   latency. Measure first-run activation, restart, offline activation and
   list refresh on actual Android devices before release.
+
+## Bounded upstream resolver discovery
+
+- DNS resolver discovery still prefers DHCP-provided DNS servers and then
+  attempts configured public fallbacks in order.
+- Each probe now uses at most 1.5 seconds and the entire discovery sequence
+  uses a six-second monotonic budget. Once the budget is exhausted, the
+  application reports no reachable DNS instead of extending startup across
+  every timeout. A stop/interruption check is performed between candidates.
+- Some slow networks may require device-level verification or different
+  tuning; these limits prioritize predictable startup time. The six-second
+  bound applies to probe wait time, not to all system or Android startup steps.
+- Regression tests verify deadline arithmetic and boundary conditions.
