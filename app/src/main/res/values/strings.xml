@@ -37,6 +37,13 @@
     <string name="log_blocked">Blocked</string>
     <string name="log_allowed">Allowed</string>
     <string name="log_empty">No matching DNS requests</string>
+    <string name="log_rule_allow">Always allow this domain</string>
+    <string name="log_rule_block">Block this domain</string>
+    <string name="log_rule_undo">Undo last rule change</string>
+    <string name="log_rule_saved">Rule updated for %1$s</string>
+    <string name="log_rule_undone">Last rule change undone</string>
+    <string name="log_rule_parent_allowed">Remove the parent allow rule in Settings first</string>
+    <string name="log_rule_invalid">This domain cannot be added to rules</string>
     <string name="log_count_format">Showing %1$d of %2$d recent requests</string>
     <string name="settings_back">Back to protection</string>
     <string name="settings_title">FILTER SETTINGS</string>
