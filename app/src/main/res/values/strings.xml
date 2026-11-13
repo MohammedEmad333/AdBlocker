@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AdBlocker</string>
+    <string name="quick_tile_label">DNS protection</string>
+    <string name="quick_tile_on">On</string>
+    <string name="quick_tile_off">Off</string>
     <string name="protection_label">DNS protection</string>
     <string name="protection_on">PROTECTED</string>
     <string name="protection_starting">STARTING</string>
