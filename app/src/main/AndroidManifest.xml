@@ -55,6 +55,21 @@
             <meta-data android:name="autoStoreLocales" android:value="true" />
         </service>
 
+        <!-- User-triggered Quick Settings toggle; only the OS can bind it. -->
+        <service
+            android:name=".AdBlockQuickTile"
+            android:exported="true"
+            android:label="@string/quick_tile_label"
+            android:icon="@mipmap/ic_launcher"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
+        </service>
+
         <!-- Main launcher activity -->
         <activity
             android:name=".MainActivity"
