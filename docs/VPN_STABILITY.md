@@ -242,3 +242,19 @@ wrong opcodes and mismatched questions.
   cover overlapping, replaced and null network events plus reset behavior.
 - Network handoff still requires physical Android verification on multiple
   transports, including rapid Wi-Fi/cellular changes and loss of connectivity.
+
+## AdBlocker 1.3: bounded DNS recovery on unstable networks
+
+Repeated timeout and SERVFAIL-driven recovery requests now share a 15-second
+monotonic cooldown, preventing high-volume DNS failure bursts from causing
+continuous resolver probes and network/battery churn. Network availability
+callbacks still request prompt recovery without this cooldown.
+
+A separate 15-second timer retries resolver selection while the VPN is
+running and no upstream DNS server is available (or after three consecutive
+failures), even when no app generates DNS traffic. Initial startup still
+requires a working resolver; this timer applies only after the tunnel starts.
+
+Pure Java tests verify retry deadlines, session reset, and clock changes.
+Physical-device handoff, captive portal, and airplane-mode testing remains a
+release gate.
