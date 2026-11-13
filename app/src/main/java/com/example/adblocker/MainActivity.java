@@ -29,7 +29,7 @@ import java.util.List;
 /** Live, localized protection overview. DNS records stay in process memory only. */
 public final class MainActivity extends AppCompatActivity {
     private TextView statusText, upstreamText, stoppedCount, seenCount, allowedCount;
-    private TextView blockedRate, streamText, healthText, domainsLoaded;
+    private TextView blockedRate, streamText, healthText, domainsLoaded, topBlockedText;
     private ProgressBar blockingProgress;
     private Button toggleButton;
 
@@ -69,6 +69,7 @@ public final class MainActivity extends AppCompatActivity {
         streamText = findViewById(R.id.streamText);
         healthText = findViewById(R.id.healthText);
         domainsLoaded = findViewById(R.id.domainsLoaded);
+        topBlockedText = findViewById(R.id.topBlockedText);
         blockingProgress = findViewById(R.id.blockingProgress);
         toggleButton = findViewById(R.id.toggleButton);
 
@@ -161,6 +162,21 @@ public final class MainActivity extends AppCompatActivity {
                 AdBlockVpnService.timeouts.get(),
                 AdBlockVpnService.errors.get()));
         renderPreview();
+        renderTopBlocked();
+    }
+
+    private void renderTopBlocked() {
+        List<DnsHistory.DomainCount> top = AdBlockVpnService.HISTORY.topBlocked(3);
+        if (top.isEmpty()) {
+            topBlockedText.setText(R.string.top_blocked_empty);
+            return;
+        }
+        StringBuilder text = new StringBuilder();
+        for (DnsHistory.DomainCount item : top) {
+            if (text.length() > 0) text.append("\n");
+            text.append(getString(R.string.top_blocked_item, item.domain, item.count));
+        }
+        topBlockedText.setText(text.toString());
     }
 
     private void renderPreview() {

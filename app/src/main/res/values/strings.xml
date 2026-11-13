@@ -23,6 +23,9 @@
     <string name="domains_loaded_format">Filter domains: %1$d</string>
     <string name="health_placeholder">Answered: 0  •  Timeouts: 0  •  Errors: 0</string>
     <string name="health_format">Answered: %1$d  •  Timeouts: %2$d  •  Errors: %3$d</string>
+    <string name="top_blocked_title">Top blocked domains in recent history</string>
+    <string name="top_blocked_empty">No blocked DNS requests recorded</string>
+    <string name="top_blocked_item">%1$s · %2$d</string>
     <string name="recent_activity">Recent activity</string>
     <string name="no_recent_requests">No DNS requests recorded in this session</string>
     <string name="open_activity_log">Search activity log</string>

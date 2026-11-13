@@ -23,6 +23,9 @@
     <string name="domains_loaded_format">نطاقات الحظر: %1$d</string>
     <string name="health_placeholder">استجابات: ٠  •  مهلات: ٠  •  أخطاء: ٠</string>
     <string name="health_format">استجابات: %1$d  •  مهلات: %2$d  •  أخطاء: %3$d</string>
+    <string name="top_blocked_title">أكثر النطاقات حظرًا في السجل الحديث</string>
+    <string name="top_blocked_empty">لا توجد طلبات DNS محظورة في السجل</string>
+    <string name="top_blocked_item">%1$s · %2$d</string>
     <string name="recent_activity">أحدث النشاطات</string>
     <string name="no_recent_requests">لا توجد طلبات DNS مسجلة في هذه الجلسة</string>
     <string name="open_activity_log">البحث في سجل النشاط</string>
