@@ -79,6 +79,8 @@ public final class SettingsActivity extends AppCompatActivity {
                 toast(getString(R.string.settings_refresh_requested));
                 refresh.setEnabled(true);
             } else {
+                settings.setManualRefreshState(FilterSettings.ManualRefreshState.RUNNING);
+                refreshTime();
                 toast(getString(R.string.settings_downloading));
                 new Thread(() -> {
                     BlocklistRefreshStatus.Outcome outcome;
@@ -92,6 +94,8 @@ public final class SettingsActivity extends AppCompatActivity {
                     final BlocklistRefreshStatus.Outcome result = outcome;
                     runOnUiThread(() -> {
                         refresh.setEnabled(true);
+                        settings.setManualRefreshState(
+                                FilterSettings.ManualRefreshState.completed(result));
                         refreshTime();
                         int message;
                         switch (result) {
