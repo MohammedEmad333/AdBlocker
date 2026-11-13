@@ -76,10 +76,8 @@ public final class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.openLogButton).setOnClickListener(v ->
                 startActivity(new Intent(this, ActivityLogActivity.class)));
-        toggleButton.setOnClickListener(v -> {
-            if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting) stopVpnService();
-            else requestConsent();
-        });
+        toggleButton.setOnClickListener(v -> toggleProtection());
+        handleQuickTileIntent(getIntent(), savedInstanceState == null);
         render();
     }
 
