@@ -77,10 +77,28 @@ public final class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.openLogButton).setOnClickListener(v ->
                 startActivity(new Intent(this, ActivityLogActivity.class)));
-        toggleButton.setOnClickListener(v -> {
-            if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting) stopVpnService();
-            else requestConsent();
-        });
+        toggleButton.setOnClickListener(v -> toggleProtection());
+        handleQuickTileIntent(getIntent(), savedInstanceState == null);
+        render();
+    }
+
+    private void toggleProtection() {
+        if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting) stopVpnService();
+        else requestConsent();
+    }
+
+    /** Process only a fresh user tile tap, not a rotation/recreation. */
+    private void handleQuickTileIntent(Intent incoming, boolean fresh) {
+        if (incoming == null
+                || !AdBlockQuickTile.ACTION_TOGGLE_FROM_TILE.equals(incoming.getAction())) return;
+        incoming.setAction(Intent.ACTION_MAIN);
+        if (fresh) toggleProtection();
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleQuickTileIntent(intent, true);
         render();
     }
 

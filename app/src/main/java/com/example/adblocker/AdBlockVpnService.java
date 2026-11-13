@@ -164,6 +164,7 @@ public class AdBlockVpnService extends VpnService {
         if (vpnThread != null) return;
         stopRequested = false;
         isStarting = true;
+        AdBlockQuickTile.requestUpdate(this);
         consecutiveFailures.set(0);
         recoveryCooldown.reset();
         resetStats();
@@ -239,6 +240,7 @@ public class AdBlockVpnService extends VpnService {
             if (stopRequested) return;
             isRunning = true;
             isStarting = false;
+            AdBlockQuickTile.requestUpdate(this);
             watchNetworks();
             // Check every 30 minutes; per-source cache freshness enforces daily updates.
             filterScheduler = Executors.newSingleThreadScheduledExecutor();
@@ -289,6 +291,7 @@ public class AdBlockVpnService extends VpnService {
             closeTun();
             isRunning = false;
             isStarting = false;
+            AdBlockQuickTile.requestUpdate(this);
             synchronized (this) {
                 if (vpnThread == Thread.currentThread()) vpnThread = null;
             }
