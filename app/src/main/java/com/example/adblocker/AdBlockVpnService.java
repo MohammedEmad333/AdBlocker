@@ -282,6 +282,7 @@ public class AdBlockVpnService extends VpnService {
             if (dnsPool != null) dnsPool.shutdownNow();
             if (filterScheduler != null) filterScheduler.shutdownNow();
             filterRefreshQueue.reset();
+            new FilterSettings(this).failPendingManualRefresh();
             resolverRefreshQueue.reset();
             if (tcpScheduler != null) tcpScheduler.shutdownNow();
             tcpTunnel.clear();
@@ -494,7 +495,13 @@ public class AdBlockVpnService extends VpnService {
     /** Coalesce concurrent changes, retaining a forced refresh while a reload runs. */
     private void requestFilterRefresh(boolean force) {
         ScheduledExecutorService scheduler = filterScheduler;
-        if (stopRequested || scheduler == null || scheduler.isShutdown()) return;
+        if (stopRequested || scheduler == null || scheduler.isShutdown()) {
+            if (force) new FilterSettings(this).setManualRefreshState(
+                    FilterSettings.ManualRefreshState.FAILED);
+            return;
+        }
+        if (force) new FilterSettings(this).setManualRefreshState(
+                FilterSettings.ManualRefreshState.RUNNING);
         if (!filterRefreshQueue.request(force)) return;
         try {
             scheduler.execute(() -> {
@@ -502,24 +509,42 @@ public class AdBlockVpnService extends VpnService {
                     Boolean next;
                     while (!stopRequested && (next = filterRefreshQueue.next()) != null) {
                         try {
-                            DomainRules.Policy updated = readPolicy(next);
+                            BlocklistRefreshStatus.Outcome outcome = null;
+                            DomainRules.Policy updated;
+                            if (next) {
+                                // Capture actual download failures, not cached-fallback success.
+                                outcome = new BlocklistManager(this)
+                                        .refreshWithStatus().outcome();
+                                updated = readPolicyCached();
+                            } else {
+                                updated = readPolicy(false);
+                            }
                             if (!stopRequested) {
                                 filterPolicy = updated;
                                 remoteDomainCount = updated.downloadedDomainCount();
                                 Log.i(TAG, "Filter policy refreshed: "
                                         + updated.downloadedDomainCount() + " remote domains");
+                                if (next) new FilterSettings(this).setManualRefreshState(
+                                        FilterSettings.ManualRefreshState.completed(outcome));
                             }
                         } catch (Exception e) {
+                            if (next) new FilterSettings(this).setManualRefreshState(
+                                    FilterSettings.ManualRefreshState.FAILED);
                             Log.w(TAG, "Filter refresh failed; keeping previous policy", e);
                         }
                     }
                 } finally {
                     // On cancellation/shutdown the next VPN session starts cleanly.
-                    if (stopRequested) filterRefreshQueue.reset();
+                    if (stopRequested) {
+                        filterRefreshQueue.reset();
+                        new FilterSettings(this).failPendingManualRefresh();
+                    }
                 }
             });
         } catch (RejectedExecutionException e) {
             filterRefreshQueue.reset();
+            if (force) new FilterSettings(this).setManualRefreshState(
+                    FilterSettings.ManualRefreshState.FAILED);
         }
     }
 

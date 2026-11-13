@@ -17,6 +17,31 @@ public final class FilterSettings {
     private static final String BLOCK = "block_domains";
     private static final String EXCLUDED = "excluded_packages";
     private static final String LAST_REFRESH = "last_successful_download";
+    private static final String LAST_MANUAL_REFRESH = "last_manual_refresh_state";
+
+    public enum ManualRefreshState {
+        NEVER, RUNNING, SUCCESS, PARTIAL, FAILED, NO_SOURCES;
+
+        public static ManualRefreshState parse(String value) {
+            if (value == null) return NEVER;
+            try {
+                return valueOf(value);
+            } catch (IllegalArgumentException e) {
+                return NEVER;
+            }
+        }
+
+        public static ManualRefreshState completed(BlocklistRefreshStatus.Outcome outcome) {
+            if (outcome == null) return FAILED;
+            switch (outcome) {
+                case SUCCESS: return SUCCESS;
+                case PARTIAL: return PARTIAL;
+                case NO_SOURCES: return NO_SOURCES;
+                default: return FAILED;
+            }
+        }
+    }
+
 
     private final SharedPreferences prefs;
 
@@ -83,6 +108,21 @@ public final class FilterSettings {
         if (excluded) packages.add(packageName);
         else packages.remove(packageName);
         prefs.edit().putStringSet(EXCLUDED, packages).apply();
+    }
+
+    public ManualRefreshState manualRefreshState() {
+        return ManualRefreshState.parse(prefs.getString(LAST_MANUAL_REFRESH,
+                ManualRefreshState.NEVER.name()));
+    }
+
+    public void setManualRefreshState(ManualRefreshState state) {
+        prefs.edit().putString(LAST_MANUAL_REFRESH, state.name()).apply();
+    }
+
+    public void failPendingManualRefresh() {
+        if (manualRefreshState() == ManualRefreshState.RUNNING) {
+            setManualRefreshState(ManualRefreshState.FAILED);
+        }
     }
 
     public void markDownloaded() {

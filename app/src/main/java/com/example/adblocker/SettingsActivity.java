@@ -10,6 +10,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
@@ -33,6 +35,13 @@ public final class SettingsActivity extends AppCompatActivity {
     private FilterSettings settings;
     private LinearLayout root;
     private TextView updateStatus;
+    private final Handler refreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable refreshTicker = new Runnable() {
+        @Override public void run() {
+            if (updateStatus != null) refreshTime();
+            refreshHandler.postDelayed(this, 1500);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle state) {
@@ -64,10 +73,14 @@ public final class SettingsActivity extends AppCompatActivity {
         refresh.setOnClickListener(v -> {
             refresh.setEnabled(false);
             if (AdBlockVpnService.isRunning) {
+                settings.setManualRefreshState(FilterSettings.ManualRefreshState.RUNNING);
                 sendRefresh(true);
+                refreshTime();
                 toast(getString(R.string.settings_refresh_requested));
                 refresh.setEnabled(true);
             } else {
+                settings.setManualRefreshState(FilterSettings.ManualRefreshState.RUNNING);
+                refreshTime();
                 toast(getString(R.string.settings_downloading));
                 new Thread(() -> {
                     BlocklistRefreshStatus.Outcome outcome;
@@ -81,6 +94,8 @@ public final class SettingsActivity extends AppCompatActivity {
                     final BlocklistRefreshStatus.Outcome result = outcome;
                     runOnUiThread(() -> {
                         refresh.setEnabled(true);
+                        settings.setManualRefreshState(
+                                FilterSettings.ManualRefreshState.completed(result));
                         refreshTime();
                         int message;
                         switch (result) {
@@ -111,15 +126,34 @@ public final class SettingsActivity extends AppCompatActivity {
 
     @Override protected void onResume() {
         super.onResume();
+        if (!AdBlockVpnService.isRunning) settings.failPendingManualRefresh();
+        refreshHandler.removeCallbacks(refreshTicker);
         if (updateStatus != null) refreshTime();
+        refreshHandler.postDelayed(refreshTicker, 1500);
+    }
+
+    @Override protected void onPause() {
+        refreshHandler.removeCallbacks(refreshTicker);
+        super.onPause();
     }
 
     private void refreshTime() {
         long timestamp = settings.lastDownloadedAt();
-        updateStatus.setText(timestamp <= 0 ? getString(R.string.settings_no_update)
+        String downloaded = timestamp <= 0 ? getString(R.string.settings_no_update)
                 : getString(R.string.settings_update_time,
                     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                        .format(new java.util.Date(timestamp))));
+                        .format(new java.util.Date(timestamp)));
+        int outcomeLabel;
+        switch (settings.manualRefreshState()) {
+            case RUNNING: outcomeLabel = R.string.settings_downloading; break;
+            case SUCCESS: outcomeLabel = R.string.settings_refresh_finished; break;
+            case PARTIAL: outcomeLabel = R.string.settings_refresh_partial; break;
+            case FAILED: outcomeLabel = R.string.settings_refresh_failed; break;
+            case NO_SOURCES: outcomeLabel = R.string.settings_refresh_disabled; break;
+            default: outcomeLabel = 0;
+        }
+        updateStatus.setText(outcomeLabel == 0 ? downloaded
+                : downloaded + "\n" + getString(outcomeLabel));
     }
 
     private void sourceToggle(String title, String id) {
