@@ -37,6 +37,13 @@
     <string name="log_blocked">محظور</string>
     <string name="log_allowed">مسموح</string>
     <string name="log_empty">لا توجد طلبات DNS مطابقة</string>
+    <string name="log_rule_allow">السماح بهذا النطاق دائمًا</string>
+    <string name="log_rule_block">حظر هذا النطاق</string>
+    <string name="log_rule_undo">التراجع عن آخر تعديل</string>
+    <string name="log_rule_saved">تم تحديث قاعدة %1$s</string>
+    <string name="log_rule_undone">تم التراجع عن آخر تعديل</string>
+    <string name="log_rule_parent_allowed">أزل سماح النطاق الرئيسي من الإعدادات أولًا</string>
+    <string name="log_rule_invalid">لا يمكن إضافة هذا النطاق إلى القواعد</string>
     <string name="log_count_format">عرض %1$d من أصل %2$d طلبًا حديثًا</string>
     <string name="settings_back">العودة للحماية</string>
     <string name="settings_title">إعدادات التصفية</string>
