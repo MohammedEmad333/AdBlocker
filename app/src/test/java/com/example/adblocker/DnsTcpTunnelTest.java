@@ -158,6 +158,49 @@ public class DnsTcpTunnelTest {
         assertEquals(290, next.replies.get(0).length - 60);
     }
 
+    @Test public void missingAckRetransmitsExactDnsChunkThenExpiresFlow() {
+        Session s = new Session(4, 30105);
+        DnsTcpTunnel.Request req = s.query("retry.example", false);
+        assertNotNull(req);
+        byte[] dns = DnsPacket.buildNxDomain(req.dns, 0, req.dns.length);
+        byte[] first = s.engine.complete(req, dns, s.now).replies.get(0);
+        for (int retry = 1; retry <= DnsTcpTunnel.MAX_RETRIES; retry++) {
+            long at = s.now + retry * DnsTcpTunnel.RETRANSMIT_MILLIS + 1;
+            java.util.List<byte[]> packets = s.engine.tick(at);
+            assertEquals(1, packets.size());
+            assertArrayEquals(first, packets.get(0));
+        }
+        assertTrue(s.engine.tick(s.now + (DnsTcpTunnel.MAX_RETRIES + 1)
+                * DnsTcpTunnel.RETRANSMIT_MILLIS + 2).isEmpty());
+        assertEquals(0, s.engine.activeFlows());
+    }
+
+    @Test public void ackedDnsChunkStopsRetransmissions() {
+        Session s = new Session(6, 30106);
+        DnsTcpTunnel.Request req = s.query("ack.example", false);
+        assertNotNull(req);
+        byte[] reply = s.engine.complete(req,
+                DnsPacket.buildNxDomain(req.dns, 0, req.dns.length), s.now)
+                .replies.get(0);
+        s.ack = DnsTcpTunnelPacket.plus(s.ack, reply.length - 60);
+        assertTrue(s.send(DnsTcpTunnelPacket.ACK, new byte[0]).replies.isEmpty());
+        assertTrue(s.engine.tick(s.now + DnsTcpTunnel.RETRANSMIT_MILLIS + 10)
+                .isEmpty());
+        assertEquals(1, s.engine.activeFlows());
+    }
+
+    @Test public void malformedCompletionResetsOnlyTheOwningFlow() {
+        Session first = new Session(4, 30107);
+        DnsTcpTunnel.Request req = first.query("valid.example", false);
+        assertNotNull(req);
+        byte[] malformed = DnsPacket.buildQuery("other.example", 0x8877);
+        DnsTcpTunnel.Result result = first.engine.complete(req, malformed, first.now);
+        assertEquals(1, result.replies.size());
+        assertEquals(DnsTcpTunnelPacket.RST | DnsTcpTunnelPacket.ACK,
+                result.replies.get(0)[33] & 255);
+        assertEquals(0, first.engine.activeFlows());
+    }
+
     @Test public void flowCapacityTimeoutAndRetransmission() {
         DnsTcpTunnel engine = new DnsTcpTunnel();
         for (int i = 0; i < DnsTcpTunnel.MAX_FLOWS; i++) {
