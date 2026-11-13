@@ -2,7 +2,9 @@ package com.example.adblocker;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 /**
@@ -21,6 +23,17 @@ public final class DnsHistory {
             this.domain = domain;
             this.blocked = blocked;
             this.timeMillis = timeMillis;
+        }
+    }
+
+    /** Aggregated session-only count. Individual domains never leave RAM. */
+    public static final class DomainCount {
+        public final String domain;
+        public final int count;
+
+        DomainCount(String domain, int count) {
+            this.domain = domain;
+            this.count = count;
         }
     }
 
@@ -51,6 +64,27 @@ public final class DnsHistory {
     public synchronized void clear() {
         entries.clear();
         version++;
+    }
+
+    /** Top blocked domains among only the latest capacity-bounded events. */
+    public synchronized List<DomainCount> topBlocked(int limit) {
+        List<DomainCount> result = new ArrayList<>();
+        if (limit <= 0) return result;
+        Map<String, Integer> counts = new HashMap<>();
+        for (Entry entry : entries) {
+            if (entry.blocked) {
+                counts.put(entry.domain, counts.getOrDefault(entry.domain, 0) + 1);
+            }
+        }
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            result.add(new DomainCount(e.getKey(), e.getValue()));
+        }
+        result.sort((a, b) -> {
+            int byCount = Integer.compare(b.count, a.count);
+            return byCount != 0 ? byCount : a.domain.compareTo(b.domain);
+        });
+        if (result.size() > limit) return new ArrayList<>(result.subList(0, limit));
+        return result;
     }
 
     /** A stable snapshot, limited to the requested number of matching rows. */
