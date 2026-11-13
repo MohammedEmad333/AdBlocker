@@ -35,6 +35,8 @@ public final class SettingsActivity extends AppCompatActivity {
     private FilterSettings settings;
     private LinearLayout root;
     private TextView updateStatus;
+    private CheckBox stevenBlackCheck, adAwayCheck;
+    private TextView presetStatus;
     private final Handler refreshHandler = new Handler(Looper.getMainLooper());
     private final Runnable refreshTicker = new Runnable() {
         @Override public void run() {
@@ -65,8 +67,20 @@ public final class SettingsActivity extends AppCompatActivity {
         languageSelector();
 
         section(getString(R.string.settings_sources));
-        sourceToggle(getString(R.string.source_stevenblack), FilterSettings.STEVENBLACK);
-        sourceToggle(getString(R.string.source_adaway), FilterSettings.ADAWAY);
+        stevenBlackCheck = sourceToggle(getString(R.string.source_stevenblack),
+                FilterSettings.STEVENBLACK);
+        adAwayCheck = sourceToggle(getString(R.string.source_adaway),
+                FilterSettings.ADAWAY);
+        section(getString(R.string.settings_preset_title));
+        presetStatus = label("", 12, R.color.muted);
+        updatePresetStatus();
+        Button balanced = button(getString(R.string.settings_preset_balanced));
+        balanced.setOnClickListener(v -> applyPreset(ProtectionPresets.Mode.BALANCED));
+        root.addView(balanced);
+        Button strong = button(getString(R.string.settings_preset_strong));
+        strong.setOnClickListener(v -> applyPreset(ProtectionPresets.Mode.STRONG));
+        root.addView(strong);
+        label(getString(R.string.settings_preset_custom_explain), 12, R.color.muted);
         updateStatus = label("", 12, R.color.muted);
         refreshTime();
         Button refresh = button(getString(R.string.settings_refresh));
@@ -156,16 +170,43 @@ public final class SettingsActivity extends AppCompatActivity {
                 : downloaded + "\n" + getString(outcomeLabel));
     }
 
-    private void sourceToggle(String title, String id) {
+    private CheckBox sourceToggle(String title, String id) {
         CheckBox check = new CheckBox(this);
         check.setText(title);
         check.setTextColor(getColor(R.color.text));
         check.setChecked(settings.sourceEnabled(id));
         check.setOnCheckedChangeListener((button, enabled) -> {
             settings.setSourceEnabled(id, enabled);
+            updatePresetStatus();
             sendRefresh(false);
         });
         root.addView(check);
+        return check;
+    }
+
+    private void applyPreset(ProtectionPresets.Mode mode) {
+        settings.setSourceEnabled(FilterSettings.STEVENBLACK,
+                ProtectionPresets.sourceEnabled(mode, FilterSettings.STEVENBLACK));
+        settings.setSourceEnabled(FilterSettings.ADAWAY,
+                ProtectionPresets.sourceEnabled(mode, FilterSettings.ADAWAY));
+        stevenBlackCheck.setChecked(settings.sourceEnabled(FilterSettings.STEVENBLACK));
+        adAwayCheck.setChecked(settings.sourceEnabled(FilterSettings.ADAWAY));
+        updatePresetStatus();
+        sendRefresh(false);
+    }
+
+    private void updatePresetStatus() {
+        if (presetStatus == null) return;
+        ProtectionPresets.Mode mode = ProtectionPresets.current(
+                settings.sourceEnabled(FilterSettings.STEVENBLACK),
+                settings.sourceEnabled(FilterSettings.ADAWAY));
+        int name;
+        switch (mode) {
+            case STRONG: name = R.string.settings_preset_strong_label; break;
+            case BALANCED: name = R.string.settings_preset_balanced_label; break;
+            default: name = R.string.settings_preset_custom_label;
+        }
+        presetStatus.setText(getString(R.string.settings_preset_current, getString(name)));
     }
 
     private void domainEditor(String heading, boolean allow) {
