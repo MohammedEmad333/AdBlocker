@@ -81,6 +81,26 @@ public final class MainActivity extends AppCompatActivity {
         render();
     }
 
+    private void toggleProtection() {
+        if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting) stopVpnService();
+        else requestConsent();
+    }
+
+    /** Process only a fresh user tile tap, not a rotation/recreation. */
+    private void handleQuickTileIntent(Intent incoming, boolean fresh) {
+        if (incoming == null
+                || !AdBlockQuickTile.ACTION_TOGGLE_FROM_TILE.equals(incoming.getAction())) return;
+        incoming.setAction(Intent.ACTION_MAIN);
+        if (fresh) toggleProtection();
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleQuickTileIntent(intent, true);
+        render();
+    }
+
     @Override protected void onResume() {
         super.onResume();
         IntentFilter events = new IntentFilter();
