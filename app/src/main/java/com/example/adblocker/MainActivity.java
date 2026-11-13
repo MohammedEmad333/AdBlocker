@@ -173,7 +173,7 @@ public final class MainActivity extends AppCompatActivity {
         }
         StringBuilder text = new StringBuilder();
         for (DnsHistory.DomainCount item : top) {
-            if (text.length() > 0) text.append("\\n");
+            if (text.length() > 0) text.append("\n");
             text.append(getString(R.string.top_blocked_item, item.domain, item.count));
         }
         topBlockedText.setText(text.toString());
