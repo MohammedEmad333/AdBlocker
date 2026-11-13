@@ -29,14 +29,15 @@ See [Release guide](docs/RELEASE.md) for setup, and [Device testing](docs/DEVICE
 
 ## Technical limitations
 
-This implementation filters supported DNS-over-UDP queries via a local VPN. DNS-over-TCP, DNS-over-HTTPS, DNS-over-TLS, and some advanced TCP use cases are not filtered. It is not a complete network firewall. Successful APK compilation does not establish real-world VPN reliability.
+This implementation filters supported DNS-over-UDP and bounded DNS-over-TCP queries addressed to the app's virtual IPv4/IPv6 resolvers. Client DNS/TCP supports one outstanding question per flow with bounded retransmissions, but not pipelining or arbitrary TCP forwarding. DNS-over-HTTPS, DNS-over-TLS, and encrypted DNS inside other apps are not intercepted. It is not a complete network firewall. Successful APK compilation does not establish real-world VPN reliability.
 
 ## Phase 5: DNS transport hardening
 
 The TUN reader now blocks rather than spins. IPv4 and IPv6 DNS-over-UDP use
 synthetic VPN resolvers. Network callbacks help recover upstream DNS after
 connection changes. Truncated UDP answers can be retried over TCP to the
-upstream DNS server; client-originated TCP, DoH and DoT remain unsupported.
+upstream DNS server; limited client-originated DNS-over-TCP is supported,
+but DoH and DoT remain outside this DNS-only tunnel's scope.
 See docs/VPN_STABILITY.md for scope and device validation.
 
 
