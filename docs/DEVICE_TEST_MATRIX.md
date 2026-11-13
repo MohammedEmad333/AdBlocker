@@ -4,22 +4,22 @@ CI checks lint, Java unit tests and build artifacts. **Real VPN behavior and UI 
 
 | Scenario | Android 8/9 | Android 13 | Android 14/15 | Android 16 |
 | --- | --- | --- | --- | --- |
-| Install and grant VPN consent | Pending | Pending | Pending  Pending |
-| Start, stop, cancel during initialization | Pending | Pending | Pending  Pending |
-| Known blocked and allowed DNS domains | Pending | Pending | Pending  Pending |
-| Custom allowlist and blocklist precedence | Pending | Pending | Pending  Pending |
-| Service/notification in background | Pending | Pending | Pending  Pending |
-| Wi-Fi to cellular handoff | Pending | Pending | Pending  Pending |
-| Offline restart with stale cache | Pending | Pending | Pending  Pending |
-| Manual list refresh and malformed response | Pending | Pending | Pending  Pending |
-| Per-app exclusions after VPN restart | Pending | Pending | Pending  Pending |
-| Arabic RTL, English, system language | Pending | Pending | Pending  Pending |
-| DNS activity search and bounded history | Pending | Pending | Pending  Pending |
-| DNS burst, memory usage and battery | Pending | Pending | Pending  Pending |
-| App-originated DNS/TCP over IPv4 and IPv6 | Pending | Pending | Pending  Pending |
-| Split DNS/TCP request, large response, retransmission | Pending | Pending | Pending  Pending |
-| TCP late SYN/RST and invalid ACK handling | Pending | Pending | Pending  Pending |
-| Release signing/upgrade validation | Pending | Pending | Pending  Pending |
+| Install and grant VPN consent | Pending | Pending | Pending | Pending |
+| Start, stop, cancel during initialization | Pending | Pending | Pending | Pending |
+| Known blocked and allowed DNS domains | Pending | Pending | Pending | Pending |
+| Custom allowlist and blocklist precedence | Pending | Pending | Pending | Pending |
+| Service/notification in background | Pending | Pending | Pending | Pending |
+| Wi-Fi to cellular handoff | Pending | Pending | Pending | Pending |
+| Offline restart with stale cache | Pending | Pending | Pending | Pending |
+| Manual list refresh and malformed response | Pending | Pending | Pending | Pending |
+| Per-app exclusions after VPN restart | Pending | Pending | Pending | Pending |
+| Arabic RTL, English, system language | Pending | Pending | Pending | Pending |
+| DNS activity search and bounded history | Pending | Pending | Pending | Pending |
+| DNS burst, memory usage and battery | Pending | Pending | Pending | Pending |
+| App-originated DNS/TCP over IPv4 and IPv6 | Pending | Pending | Pending | Pending |
+| Split DNS/TCP request, large response, retransmission | Pending | Pending | Pending | Pending |
+| TCP late SYN/RST and invalid ACK handling | Pending | Pending | Pending | Pending |
+| Release signing/upgrade validation | Pending | Pending | Pending | Pending |
 
 Useful local commands:
 
