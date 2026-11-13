@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">مانع الإعلانات</string>
+    <string name="quick_tile_label">حماية DNS</string>
+    <string name="quick_tile_on">مفعّلة</string>
+    <string name="quick_tile_off">متوقفة</string>
     <string name="protection_label">حماية DNS</string>
     <string name="protection_on">الحماية مفعّلة</string>
     <string name="protection_starting">جاري التشغيل</string>
