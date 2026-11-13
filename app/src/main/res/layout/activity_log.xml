@@ -90,6 +90,15 @@
         android:textColor="@color/muted"
         android:textSize="12sp" />
 
+    <Button
+        android:id="@+id/logUndoRuleButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/log_rule_undo"
+        android:visibility="gone"
+        android:textAllCaps="false" />
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
