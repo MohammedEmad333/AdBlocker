@@ -59,6 +59,14 @@
     <string name="language_arabic">العربية</string>
     <string name="language_english">الإنجليزية</string>
     <string name="settings_sources">مصادر الحظر</string>
+    <string name="settings_preset_title">ملفات الحماية</string>
+    <string name="settings_preset_current">وضع الحماية الحالي: %1$s</string>
+    <string name="settings_preset_balanced">استخدام الحماية المتوازنة</string>
+    <string name="settings_preset_strong">استخدام حماية أقوى</string>
+    <string name="settings_preset_balanced_label">متوازن</string>
+    <string name="settings_preset_strong_label">أقوى</string>
+    <string name="settings_preset_custom_label">مخصص</string>
+    <string name="settings_preset_custom_explain">الوضع المتوازن يستخدم StevenBlack، والأقوى يضيف AdAway وقد يؤثر على بعض المواقع. تغيير المصادر يدويًا يتيح إعدادات مخصصة، مع الاحتفاظ بقواعد النطاقات واستثناءات التطبيقات.</string>
     <string name="source_stevenblack">StevenBlack (افتراضي)</string>
     <string name="source_adaway">AdAway (اختياري)</string>
     <string name="settings_refresh">تنزيل / تحديث القوائم</string>

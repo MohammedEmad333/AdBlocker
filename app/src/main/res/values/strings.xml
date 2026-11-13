@@ -59,6 +59,14 @@
     <string name="language_arabic">Arabic</string>
     <string name="language_english">English</string>
     <string name="settings_sources">Blocklist sources</string>
+    <string name="settings_preset_title">Protection profiles</string>
+    <string name="settings_preset_current">Current profile: %1$s</string>
+    <string name="settings_preset_balanced">Use balanced protection</string>
+    <string name="settings_preset_strong">Use stronger protection</string>
+    <string name="settings_preset_balanced_label">Balanced</string>
+    <string name="settings_preset_strong_label">Stronger</string>
+    <string name="settings_preset_custom_label">Custom</string>
+    <string name="settings_preset_custom_explain">Balanced uses StevenBlack. Stronger adds AdAway and may affect some websites. Manual source choices become Custom. Your domain rules and app exclusions are preserved.</string>
     <string name="source_stevenblack">StevenBlack (default)</string>
     <string name="source_adaway">AdAway (optional)</string>
     <string name="settings_refresh">Download / refresh lists</string>
