@@ -149,7 +149,7 @@ public final class SettingsActivity extends AppCompatActivity {
             default: outcomeLabel = 0;
         }
         updateStatus.setText(outcomeLabel == 0 ? downloaded
-                : downloaded + "\\n" + getString(outcomeLabel));
+                : downloaded + "\n" + getString(outcomeLabel));
     }
 
     private void sourceToggle(String title, String id) {
