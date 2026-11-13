@@ -109,6 +109,7 @@ public class AdBlockVpnService extends VpnService {
             Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
     private volatile boolean     stopRequested;
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
+    private final DnsRecoveryCooldown recoveryCooldown = new DnsRecoveryCooldown();
     private final ResolverRefreshQueue<Network> resolverRefreshQueue = new ResolverRefreshQueue<>();
     private volatile InetAddress upstream;    // the resolver that actually answers
     private volatile Network     underlying;  // the real (non-VPN) network
@@ -164,6 +165,7 @@ public class AdBlockVpnService extends VpnService {
         stopRequested = false;
         isStarting = true;
         consecutiveFailures.set(0);
+        recoveryCooldown.reset();
         resetStats();
         tcpTunnel.clear();
         vpnThread = new Thread(this::runVpn, "AdBlockVpnThread");
@@ -254,6 +256,13 @@ public class AdBlockVpnService extends VpnService {
                     if (!stopRequested) Log.w(TAG, "TCP response timer failed", e);
                 }
             }, 1, 1, TimeUnit.SECONDS);
+            // Retry offline or degraded DNS recovery without requiring another
+            // application lookup; the cooldown avoids rapid repeated probes.
+            tcpScheduler.scheduleWithFixedDelay(() -> {
+                if (!stopRequested && (upstream == null || consecutiveFailures.get() >= 3)) {
+                    scheduleResolverRecovery();
+                }
+            }, 15, 15, TimeUnit.SECONDS);
             broadcast(ACTION_VPN_STARTED);
 
             byte[] buf = new byte[32767];
@@ -534,7 +543,7 @@ public class AdBlockVpnService extends VpnService {
             if (resolver == null) {
                 errors.incrementAndGet();
                 sendServFail(packet, parsed, out);
-                requestResolverRefresh(null);
+                scheduleResolverRecovery();
                 return;
             }
             sock = new DatagramSocket();
@@ -671,6 +680,13 @@ public class AdBlockVpnService extends VpnService {
 
     private void recordUpstreamFailure() {
         if (stopRequested || consecutiveFailures.incrementAndGet() < 3) return;
+        scheduleResolverRecovery();
+    }
+
+    /** Rate-limit failure-triggered probes; network callbacks remain immediate. */
+    private void scheduleResolverRecovery() {
+        if (stopRequested || !isRunning
+                || !recoveryCooldown.tryAcquire(android.os.SystemClock.elapsedRealtime())) return;
         requestResolverRefresh(null);
     }
 
