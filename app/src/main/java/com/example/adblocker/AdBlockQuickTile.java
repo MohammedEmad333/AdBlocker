@@ -29,6 +29,8 @@ public final class AdBlockQuickTile extends TileService {
         }
     }
 
+    // Required on API 24-33; the PendingIntent replacement needs API 34.
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
     private void launchDashboard() {
         Intent launch = new Intent(this, MainActivity.class)
                 .setAction(ACTION_TOGGLE_FROM_TILE)
