@@ -142,7 +142,32 @@ public final class ActivityLogActivity extends AppCompatActivity {
             rule.setAllCaps(false);
             rule.setOnClickListener(v -> changeRule(row.domain, allow));
             item.addView(rule);
+            if (row.blocked) {
+                Button fifteen = new Button(this);
+                fifteen.setText(R.string.log_allow_15_minutes);
+                fifteen.setAllCaps(false);
+                fifteen.setOnClickListener(v -> allowFor(row.domain,
+                        TemporaryAllowances.FIFTEEN_MINUTES));
+                item.addView(fifteen);
+                Button hour = new Button(this);
+                hour.setText(R.string.log_allow_one_hour);
+                hour.setAllCaps(false);
+                hour.setOnClickListener(v -> allowFor(row.domain,
+                        TemporaryAllowances.ONE_HOUR));
+                item.addView(hour);
+            }
         }
+    }
+
+    private void allowFor(String domain, long durationMillis) {
+        FilterSettings settings = new FilterSettings(this);
+        if (!settings.allowTemporarily(domain, durationMillis)) {
+            Toast.makeText(this, R.string.log_temporary_failed, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        notifyPolicyChanged();
+        Toast.makeText(this, getString(R.string.log_temporary_saved, domain),
+                Toast.LENGTH_SHORT).show();
     }
 
     private void changeRule(String domain, boolean allow) {
