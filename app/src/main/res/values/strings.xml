@@ -80,6 +80,17 @@
     <string name="settings_allowed_domains">Allowed domains (override all lists)</string>
     <string name="settings_blocked_domains">Blocked domains (include subdomains)</string>
     <string name="settings_add_domain">Add domain</string>
+    <string name="settings_backup_title">Back up domain rules</string>
+    <string name="settings_rules_export">Export allowed and blocked domains</string>
+    <string name="settings_rules_import">Import domain rules from a file</string>
+    <string name="settings_rules_import_confirm">Replace your existing allow and block rules with %1$d allowed and %2$d blocked domains? App exclusions remain unchanged.</string>
+    <string name="settings_rules_exported">Rules exported successfully</string>
+    <string name="settings_rules_imported">Rules imported successfully</string>
+    <string name="settings_rules_invalid">Invalid rules file. No existing rules were changed.</string>
+    <string name="settings_rules_export_failed">Unable to export domain rules</string>
+    <string name="settings_rules_cancel">Cancel</string>
+    <string name="settings_rules_replace">Replace rules</string>
+    <string name="settings_rules_explain">Only custom domain rules are included, not DNS history. Import validates the full file before replacement.</string>
     <string name="settings_domain_error">Enter a domain only, such as example.com</string>
     <string name="settings_no_domains">No custom domains</string>
     <string name="settings_remove_domain">Remove %1$s</string>
