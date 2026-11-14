@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -99,6 +101,13 @@ public class BlocklistManager {
             combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, settings, status));
         }
 
+        String custom = settings.customBlocklistUrl();
+        if (!custom.isEmpty()) {
+            anyEnabled = true;
+            combined.addAll(loadSource(custom, CustomBlocklistUrl.cacheName(custom),
+                    force, cacheOnly, settings, status));
+        }
+
         // An explicit choice to disable all remote sources must not be overridden.
         if (!anyEnabled) return combined;
         if (!combined.isEmpty()) return combined;
@@ -117,7 +126,8 @@ public class BlocklistManager {
                 && System.currentTimeMillis() - cache.lastModified() < MAX_CACHE_AGE_MS;
         if (!cacheOnly && (force || !fresh)) {
             try {
-                download(sourceUrl, cache);
+                download(sourceUrl, cache, sourceUrl.startsWith("https://raw.githubusercontent.com/")
+                        ? 1000 : 10);
                 settings.markDownloaded();
                 if (status != null) status.recordSuccess();
             } catch (IOException e) {
@@ -140,10 +150,20 @@ public class BlocklistManager {
         return new HashSet<>();
     }
 
-    private void download(String sourceUrl, File cache) throws IOException {
+    private void download(String sourceUrl, File cache, int minDomains) throws IOException {
         Log.i(TAG, "Downloading source " + sourceUrl);
         File tmp = new File(cache.getPath() + ".tmp");
-        HttpURLConnection conn = (HttpURLConnection) new URL(sourceUrl).openConnection();
+        URL url = new URL(sourceUrl);
+        if (!"https".equalsIgnoreCase(url.getProtocol())) {
+            throw new IOException("HTTPS required");
+        }
+        // Refuse public-looking hosts resolving to private/local addresses.
+        String host = url.getHost();
+        if (CustomBlocklistUrl.normalize(sourceUrl) == null
+                || !CustomBlocklistUrl.publicAddresses(InetAddress.getAllByName(host)))
+            throw new IOException("Unsafe list host");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setInstanceFollowRedirects(false);
         conn.setConnectTimeout(10_000);
         conn.setReadTimeout(15_000);
         try {
@@ -166,7 +186,7 @@ public class BlocklistManager {
             }
             if (tmp.length() < 1024) throw new IOException("Blocklist download too small");
             try (InputStream check = new FileInputStream(tmp)) {
-                if (parse(check).size() < 1000) {
+                if (parse(check).size() < minDomains) {
                     throw new IOException("Blocklist download did not contain enough domains");
                 }
             }

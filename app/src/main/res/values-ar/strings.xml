@@ -77,6 +77,14 @@
     <string name="settings_refresh_failed">فشل تنزيل القوائم، وتم الاحتفاظ بالنسخ المخزنة.</string>
     <string name="settings_refresh_disabled">فعّل مصدر حجب واحدًا على الأقل قبل التحديث.</string>
     <string name="settings_https_hint">تستخدم المصادر HTTPS، وتبقى النسخة السابقة عند فشل التحديث.</string>
+    <string name="settings_custom_source_title">قائمة حجب HTTPS مخصصة</string>
+    <string name="settings_custom_source_hint">https://lists.example.org/hosts.txt</string>
+    <string name="settings_custom_source_save">حفظ رابط القائمة</string>
+    <string name="settings_custom_source_remove">إزالة المصدر المخصص</string>
+    <string name="settings_custom_source_invalid">أدخل رابط HTTPS عامًا صالحًا دون بيانات دخول أو معاملات أو إعادة توجيه</string>
+    <string name="settings_custom_source_saved">تم حفظ المصدر. حدّث القوائم لتنزيله</string>
+    <string name="settings_custom_source_removed">تم حذف المصدر المخصص</string>
+    <string name="settings_custom_source_caution">أضف مصادر موثوقة فقط، فقد تحظر القوائم بعض المواقع السليمة. يُسمح برابط واحد فقط.</string>
     <string name="settings_allowed_domains">النطاقات المسموحة (تتجاوز قوائم الحظر)</string>
     <string name="settings_blocked_domains">النطاقات المحظورة (تشمل النطاقات الفرعية)</string>
     <string name="settings_add_domain">إضافة نطاق</string>

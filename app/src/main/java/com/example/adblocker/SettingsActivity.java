@@ -175,6 +175,34 @@ public final class SettingsActivity extends AppCompatActivity {
         });
         root.addView(refresh);
         label(getString(R.string.settings_https_hint), 12, R.color.muted);
+        section(getString(R.string.settings_custom_source_title));
+        label(getString(R.string.settings_custom_source_caution), 12, R.color.muted);
+        EditText customSource = new EditText(this);
+        customSource.setText(settings.customBlocklistUrl());
+        customSource.setHint(R.string.settings_custom_source_hint);
+        customSource.setTextColor(getColor(R.color.text));
+        customSource.setHintTextColor(getColor(R.color.muted));
+        customSource.setSingleLine(true);
+        customSource.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        root.addView(customSource);
+        Button saveSource = button(getString(R.string.settings_custom_source_save));
+        saveSource.setOnClickListener(v -> {
+            if (!settings.setCustomBlocklistUrl(customSource.getText().toString())) {
+                customSource.setError(getString(R.string.settings_custom_source_invalid));
+                return;
+            }
+            sendRefresh(false);
+            toast(getString(R.string.settings_custom_source_saved));
+        });
+        root.addView(saveSource);
+        Button removeSource = button(getString(R.string.settings_custom_source_remove));
+        removeSource.setOnClickListener(v -> {
+            settings.setCustomBlocklistUrl("");
+            customSource.setText("");
+            sendRefresh(false);
+            toast(getString(R.string.settings_custom_source_removed));
+        });
+        root.addView(removeSource);
 
         section(getString(R.string.settings_backup_title));
         label(getString(R.string.settings_rules_explain), 12, R.color.muted);
