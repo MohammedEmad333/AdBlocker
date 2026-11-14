@@ -18,6 +18,7 @@ public final class FilterSettings {
     private static final String EXCLUDED = "excluded_packages";
     private static final String LAST_REFRESH = "last_successful_download";
     private static final String LAST_MANUAL_REFRESH = "last_manual_refresh_state";
+    private static final String CUSTOM_BLOCKLIST = "custom_https_blocklist";
 
     public enum ManualRefreshState {
         NEVER, RUNNING, SUCCESS, PARTIAL, FAILED, NO_SOURCES;
@@ -47,6 +48,23 @@ public final class FilterSettings {
 
     public FilterSettings(Context context) {
         prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    public String customBlocklistUrl() {
+        String saved = prefs.getString(CUSTOM_BLOCKLIST, "");
+        String checked = CustomBlocklistUrl.normalize(saved);
+        return checked == null ? "" : checked;
+    }
+
+    public boolean setCustomBlocklistUrl(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            prefs.edit().remove(CUSTOM_BLOCKLIST).apply();
+            return true;
+        }
+        String normalized = CustomBlocklistUrl.normalize(input);
+        if (normalized == null) return false;
+        prefs.edit().putString(CUSTOM_BLOCKLIST, normalized).apply();
+        return true;
     }
 
     public Set<String> allowedDomains() {
