@@ -44,6 +44,10 @@
     <string name="log_allowed">Allowed</string>
     <string name="log_empty">No matching DNS requests</string>
     <string name="log_rule_allow">Always allow this domain</string>
+    <string name="log_allow_15_minutes">Allow for 15 minutes</string>
+    <string name="log_allow_one_hour">Allow for 1 hour</string>
+    <string name="log_temp_saved">Temporary access enabled for %1$s</string>
+    <string name="log_temp_unavailable">Start protection to allow a domain temporarily</string>
     <string name="log_rule_block">Block this domain</string>
     <string name="log_rule_undo">Undo last rule change</string>
     <string name="log_rule_saved">Rule updated for %1$s</string>
