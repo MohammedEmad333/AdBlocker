@@ -94,6 +94,18 @@ public final class FilterSettings {
         return true;
     }
 
+    /**
+     * Replace both domain rule sets in one preferences transaction after
+     * validating the entire imported backup. App exclusions remain intact.
+     */
+    public void replaceDomains(RuleBackupCodec.Rules imported) {
+        if (imported == null) throw new IllegalArgumentException("Missing rules");
+        prefs.edit()
+                .putStringSet(ALLOW, new HashSet<>(imported.allowed))
+                .putStringSet(BLOCK, new HashSet<>(imported.blocked))
+                .apply();
+    }
+
     public void removeDomain(boolean allow, String domain) {
         String normalized = DomainRules.normalize(domain);
         if (normalized == null) return;
