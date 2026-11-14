@@ -109,6 +109,19 @@ public final class SettingsActivity extends AppCompatActivity {
         label(getString(R.string.settings_description), 13, R.color.muted);
         languageSelector();
 
+        section(getString(R.string.settings_dns_transport_title));
+        CheckBox encrypted = new CheckBox(this);
+        encrypted.setText(R.string.settings_doh_enable);
+        encrypted.setTextColor(getColor(R.color.text));
+        encrypted.setChecked(settings.dohEnabled());
+        encrypted.setOnCheckedChangeListener((button, checked) -> {
+            settings.setDohEnabled(checked);
+            if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting)
+                toast(getString(R.string.settings_doh_restart));
+        });
+        root.addView(encrypted);
+        label(getString(R.string.settings_doh_explain), 12, R.color.muted);
+
         section(getString(R.string.settings_sources));
         stevenBlackCheck = sourceToggle(getString(R.string.source_stevenblack),
                 FilterSettings.STEVENBLACK);

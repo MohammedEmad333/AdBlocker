@@ -19,6 +19,7 @@ public final class FilterSettings {
     private static final String LAST_REFRESH = "last_successful_download";
     private static final String LAST_MANUAL_REFRESH = "last_manual_refresh_state";
     private static final String CUSTOM_BLOCKLIST = "custom_https_blocklist";
+    private static final String USE_DOH = "use_doh_transport";
 
     public enum ManualRefreshState {
         NEVER, RUNNING, SUCCESS, PARTIAL, FAILED, NO_SOURCES;
@@ -81,6 +82,14 @@ public final class FilterSettings {
 
     private Set<String> copy(String key) {
         return new HashSet<>(prefs.getStringSet(key, Collections.emptySet()));
+    }
+
+    public boolean dohEnabled() {
+        return prefs.getBoolean(USE_DOH, false);
+    }
+
+    public void setDohEnabled(boolean enabled) {
+        prefs.edit().putBoolean(USE_DOH, enabled).apply();
     }
 
     public boolean sourceEnabled(String id) {
