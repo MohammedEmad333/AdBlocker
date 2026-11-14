@@ -132,4 +132,8 @@
     <string name="diagnostics_counters">Queries: %1$d · Answers: %2$d · Timeouts: %3$d · Errors: %4$d</string>
     <string name="diagnostics_domains">Loaded blocklist domains: %1$d</string>
     <string name="diagnostics_disclaimer">Session counters only. This screen does not perform a DNS leak test or prove that every app is protected. VPN routing and encrypted DNS need real-device validation.</string>
+    <string name="log_allow_15_minutes">Allow for 15 minutes</string>
+    <string name="log_allow_one_hour">Allow for 1 hour</string>
+    <string name="log_temporary_saved">Temporarily allowed %1$s</string>
+    <string name="log_temporary_failed">Could not add temporary allow rule (limit or invalid domain)</string>
 </resources>
