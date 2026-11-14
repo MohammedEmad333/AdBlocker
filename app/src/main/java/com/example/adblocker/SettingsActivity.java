@@ -2,6 +2,9 @@ package com.example.adblocker;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.os.LocaleListCompat;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -23,6 +26,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.text.DateFormat;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +39,43 @@ import java.util.TreeMap;
 /** Simple settings UI with no third-party dependencies. */
 public final class SettingsActivity extends AppCompatActivity {
     private FilterSettings settings;
+    private final ActivityResultLauncher<String> exportRules =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("text/plain"),
+                    uri -> {
+                        if (uri == null) return;
+                        try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                            if (out == null) throw new IOException("Unable to write file");
+                            out.write(RuleBackupCodec.exportRules(
+                                    settings.allowedDomains(), settings.blockedDomains()));
+                            toast(getString(R.string.settings_rules_exported));
+                        } catch (IOException e) {
+                            android.util.Log.w("AdBlockBackup", "Export failed", e);
+                            toast(getString(R.string.settings_rules_export_failed));
+                        }
+                    });
+    private final ActivityResultLauncher<String[]> importRules =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(),
+                    uri -> {
+                        if (uri == null) return;
+                        try (InputStream in = getContentResolver().openInputStream(uri)) {
+                            RuleBackupCodec.Rules parsed = RuleBackupCodec.importRules(in);
+                            new AlertDialog.Builder(this)
+                                    .setMessage(getString(R.string.settings_rules_import_confirm,
+                                            parsed.allowed.size(), parsed.blocked.size()))
+                                    .setNegativeButton(R.string.settings_rules_cancel, null)
+                                    .setPositiveButton(R.string.settings_rules_replace,
+                                            (dialog, which) -> {
+                                                settings.replaceDomains(parsed);
+                                                toast(getString(R.string.settings_rules_imported));
+                                                sendRefresh(false);
+                                                recreate();
+                                            })
+                                    .show();
+                        } catch (IOException | SecurityException e) {
+                            android.util.Log.w("AdBlockBackup", "Import rejected", e);
+                            toast(getString(R.string.settings_rules_invalid));
+                        }
+                    });
     private LinearLayout root;
     private TextView updateStatus;
     private CheckBox stevenBlackCheck, adAwayCheck;
@@ -132,6 +175,16 @@ public final class SettingsActivity extends AppCompatActivity {
         });
         root.addView(refresh);
         label(getString(R.string.settings_https_hint), 12, R.color.muted);
+
+        section(getString(R.string.settings_backup_title));
+        label(getString(R.string.settings_rules_explain), 12, R.color.muted);
+        Button export = button(getString(R.string.settings_rules_export));
+        export.setOnClickListener(v -> exportRules.launch("adblocker-rules.txt"));
+        root.addView(export);
+        Button importButton = button(getString(R.string.settings_rules_import));
+        importButton.setOnClickListener(v -> importRules.launch(
+                new String[]{"text/plain", "application/octet-stream"}));
+        root.addView(importButton);
 
         domainEditor(getString(R.string.settings_allowed_domains), true);
         domainEditor(getString(R.string.settings_blocked_domains), false);
