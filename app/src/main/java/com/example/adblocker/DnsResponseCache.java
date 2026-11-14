@@ -25,7 +25,7 @@ final class DnsResponseCache {
 
     private final LinkedHashMap<String, Entry> entries =
             new LinkedHashMap<String, Entry>(LIMIT + 1, 0.75f, true) {
-                @Override protected boolean removeEldestEntry(Map.Entry<String, Entry> eldest) {
+                @Override protected boolean removeEldestEntry(Map.Entry<String, DnsResponseCache.Entry> eldest) {
                     return size() > LIMIT;
                 }
             };
