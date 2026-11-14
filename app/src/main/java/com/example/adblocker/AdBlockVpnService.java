@@ -112,6 +112,7 @@ public class AdBlockVpnService extends VpnService {
     private final DnsRecoveryCooldown recoveryCooldown = new DnsRecoveryCooldown();
     private final ResolverRefreshQueue<Network> resolverRefreshQueue = new ResolverRefreshQueue<>();
     private volatile boolean dohEnabled;
+    private volatile String activeDohProvider = DohProvider.CLOUDFLARE;
     private volatile boolean dohHealthy;
     private volatile InetAddress upstream;    // the resolver that actually answers
     private volatile Network     underlying;  // the real (non-VPN) network
@@ -168,7 +169,9 @@ public class AdBlockVpnService extends VpnService {
         isStarting = true;
         AdBlockQuickTile.requestUpdate(this);
         consecutiveFailures.set(0);
-        dohEnabled = new FilterSettings(this).dohEnabled();
+        FilterSettings transportSettings = new FilterSettings(this);
+        dohEnabled = transportSettings.dohEnabled();
+        activeDohProvider = transportSettings.dohProvider();
         dohHealthy = false;
         recoveryCooldown.reset();
         resetStats();
@@ -192,7 +195,7 @@ public class AdBlockVpnService extends VpnService {
             underlying = pickUnderlying();
             if (dohEnabled) {
                 // Never silently downgrade an opted-in encrypted DNS session.
-                dohHealthy = underlying != null && DohClient.probe(underlying);
+                dohHealthy = underlying != null && DohClient.probe(underlying, activeDohProvider);
                 upstream = null;
                 if (!dohHealthy) {
                     upstreamInfo = "DoH unavailable";
@@ -201,7 +204,7 @@ public class AdBlockVpnService extends VpnService {
                     stopSelf();
                     return;
                 }
-                upstreamInfo = "Cloudflare DoH";
+                upstreamInfo = DohProvider.label(activeDohProvider) + " DoH";
             } else {
                 upstream = pickUpstream(underlying);
                 if (upstream == null) {
@@ -449,7 +452,7 @@ public class AdBlockVpnService extends VpnService {
         try {
             if (dohEnabled) {
                 try {
-                    response = DohClient.query(network, request.dns, DNS_TIMEOUT_MS);
+                    response = DohClient.query(network, request.dns, DNS_TIMEOUT_MS, activeDohProvider);
                     dohHealthy = true;
                 } catch (IOException dohFailure) {
                     // Failed DoH must return SERVFAIL to the TCP client, not
@@ -600,7 +603,7 @@ public class AdBlockVpnService extends VpnService {
             if (dohEnabled) {
                 byte[] query = Arrays.copyOfRange(packet, parsed.dnsOffset,
                         parsed.dnsOffset + parsed.dnsLength);
-                byte[] dnsResponse = DohClient.query(network, query, DNS_TIMEOUT_MS);
+                byte[] dnsResponse = DohClient.query(network, query, DNS_TIMEOUT_MS, activeDohProvider);
                 if (dnsResponse.length > 1500 - parsed.ipHeaderLength - 8) {
                     errors.incrementAndGet();
                     sendServFail(packet, parsed, out);
@@ -775,7 +778,7 @@ public class AdBlockVpnService extends VpnService {
                         Network candidate = usableNetwork(request.preferred)
                                 ? request.preferred : pickUnderlying();
                         boolean secured = dohEnabled && candidate != null
-                                && DohClient.probe(candidate);
+                                && DohClient.probe(candidate, activeDohProvider);
                         InetAddress dns = dohEnabled || candidate == null
                                 ? null : pickUpstream(candidate);
                         if (stopRequested) return;
@@ -786,7 +789,7 @@ public class AdBlockVpnService extends VpnService {
                             underlying = candidate;
                             upstream = dns;
                             dohHealthy = secured;
-                            upstreamInfo = dohEnabled ? "Cloudflare DoH" : dns.getHostAddress();
+                            upstreamInfo = dohEnabled ? DohProvider.label(activeDohProvider) + " DoH" : dns.getHostAddress();
                             consecutiveFailures.set(0);
                             try {
                                 setUnderlyingNetworks(new Network[]{candidate});
