@@ -65,8 +65,8 @@ final class DohClient {
                 }
             }
             byte[] response = output.toByteArray();
-            if (!DnsTcpWire.matchesQuery(dns, response))
-                throw new IOException("DoH DNS question or transaction mismatch");
+            if (!DohReplyPolicy.isAcceptable(dns, response))
+                throw new IOException("DoH returned incomplete or mismatched DNS reply");
             return response;
         } finally {
             conn.disconnect();
