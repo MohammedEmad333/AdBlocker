@@ -59,6 +59,10 @@
     <string name="language_arabic">العربية</string>
     <string name="language_english">الإنجليزية</string>
     <string name="settings_sources">مصادر الحظر</string>
+    <string name="settings_dns_transport_title">اتصال DNS</string>
+    <string name="settings_doh_enable">تشفير طلبات DNS الصادرة باستخدام Cloudflare DoH</string>
+    <string name="settings_doh_explain">خيار اختياري. تُرسل الاستعلامات التي يعالجها التطبيق عبر HTTPS. عند تعطل DoH لن يتحول تلقائيًا إلى DNS غير مشفر. أعد تشغيل الحماية بعد التغيير.</string>
+    <string name="settings_doh_restart">أعد تشغيل الحماية لتطبيق تغيير اتصال DNS</string>
     <string name="settings_preset_title">ملفات الحماية</string>
     <string name="settings_preset_current">وضع الحماية الحالي: %1$s</string>
     <string name="settings_preset_balanced">استخدام الحماية المتوازنة</string>
