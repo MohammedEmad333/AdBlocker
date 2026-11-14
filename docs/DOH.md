@@ -29,3 +29,19 @@ privacy policy before enabling.
 
 Automated JVM tests cover DNS reply matching. Emulator smoke is not a
 substitute for real DoH network interoperability and VPN tests.
+
+## Selecting a trusted encrypted DNS provider (1.6.0)
+
+Choose Cloudflare (default), Google Public DNS, or Quad9 in Settings.
+Selection is stored locally; stop/start the VPN to apply it. The currently
+running session uses a snapshot of the selected provider, including after
+network handoffs. The app accepts only these fixed HTTPS endpoints and does
+not accept custom provider URLs.
+
+A failing provider returns DNS failure and does **not** silently downgrade
+to plaintext DNS or automatically send queries to another operator. Users
+may manually switch providers and restart protection. Provider changes can
+affect DNS privacy policies and filtering semantics.
+
+Physical testing remains mandatory for all three providers on real Wi-Fi,
+mobile, TLS failure, captive portal and Android 8-16 configurations.
