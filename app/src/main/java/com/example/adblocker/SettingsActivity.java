@@ -121,6 +121,37 @@ public final class SettingsActivity extends AppCompatActivity {
         });
         root.addView(encrypted);
         label(getString(R.string.settings_doh_explain), 12, R.color.muted);
+        label(getString(R.string.settings_doh_provider_label), 14, R.color.text);
+        Spinner dohProviderSpinner = new Spinner(this);
+        String[] providerIds = {
+                DohProvider.CLOUDFLARE, DohProvider.GOOGLE, DohProvider.QUAD9
+        };
+        String[] providerNames = {
+                DohProvider.label(providerIds[0]),
+                DohProvider.label(providerIds[1]),
+                DohProvider.label(providerIds[2])
+        };
+        ArrayAdapter<String> dohAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, providerNames);
+        dohAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        dohProviderSpinner.setAdapter(dohAdapter);
+        String selectedProvider = settings.dohProvider();
+        for (int i = 0; i < providerIds.length; i++) {
+            if (providerIds[i].equals(selectedProvider)) dohProviderSpinner.setSelection(i);
+        }
+        dohProviderSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view,
+                                                 int position, long id) {
+                String provider = providerIds[position];
+                if (!provider.equals(settings.dohProvider())) {
+                    settings.setDohProvider(provider);
+                    if (AdBlockVpnService.isRunning || AdBlockVpnService.isStarting)
+                        toast(getString(R.string.settings_doh_restart));
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        root.addView(dohProviderSpinner);
 
         section(getString(R.string.settings_sources));
         stevenBlackCheck = sourceToggle(getString(R.string.source_stevenblack),
