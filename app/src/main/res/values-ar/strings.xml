@@ -118,4 +118,17 @@
     <string name="notification_blocked_count">تم حظر %1$d طلبًا</string>
     <string name="notification_title">مانع الإعلانات يعمل</string>
     <string name="notification_stop">إيقاف</string>
+    <string name="diagnostics_title">تشخيص حماية DNS</string>
+    <string name="diagnostics_back">رجوع</string>
+    <string name="diagnostics_refresh">تحديث حالة الجلسة</string>
+    <string name="diagnostics_state">حالة الجلسة: %1$s</string>
+    <string name="diagnostics_stopped">متوقفة</string>
+    <string name="diagnostics_starting">جاري التشغيل</string>
+    <string name="diagnostics_idle">تعمل، ولا توجد استجابات DNS مكتملة بعد</string>
+    <string name="diagnostics_healthy">معظم استجابات DNS ناجحة</string>
+    <string name="diagnostics_degraded">معدل أخطاء DNS مرتفع</string>
+    <string name="diagnostics_upstream">الخادم: %1$s</string>
+    <string name="diagnostics_counters">الطلبات: %1$d · الاستجابات: %2$d · المهلات: %3$d · الأخطاء: %4$d</string>
+    <string name="diagnostics_domains">نطاقات الحجب المحملة: %1$d</string>
+    <string name="diagnostics_disclaimer">إحصائيات الجلسة فقط. لا تُجري هذه الشاشة اختبار تسرب DNS ولا تثبت حماية جميع التطبيقات. يلزم اختبار VPN وDNS المشفر على أجهزة فعلية.</string>
 </resources>
