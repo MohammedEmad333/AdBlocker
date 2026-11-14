@@ -132,4 +132,8 @@
     <string name="diagnostics_counters">الطلبات: %1$d · الاستجابات: %2$d · المهلات: %3$d · الأخطاء: %4$d</string>
     <string name="diagnostics_domains">نطاقات الحجب المحملة: %1$d</string>
     <string name="diagnostics_disclaimer">إحصائيات الجلسة فقط. لا تُجري هذه الشاشة اختبار تسرب DNS ولا تثبت حماية جميع التطبيقات. يلزم اختبار VPN وDNS المشفر على أجهزة فعلية.</string>
+    <string name="log_allow_15_minutes">السماح لمدة 15 دقيقة</string>
+    <string name="log_allow_one_hour">السماح لمدة ساعة</string>
+    <string name="log_temporary_saved">تم السماح مؤقتًا بالنطاق %1$s</string>
+    <string name="log_temporary_failed">تعذر إضافة سماح مؤقت (الحد الأقصى أو نطاق غير صالح)</string>
 </resources>
