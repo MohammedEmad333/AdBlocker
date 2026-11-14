@@ -105,6 +105,8 @@ public class AdBlockVpnService extends VpnService {
     private volatile ScheduledExecutorService tcpScheduler;
     private final DnsTcpTunnel tcpTunnel = new DnsTcpTunnel();
     private final FilterRefreshQueue filterRefreshQueue = new FilterRefreshQueue();
+    private volatile java.util.Map<String, Long> temporaryAllowances =
+            java.util.Collections.emptyMap();
     private volatile DomainRules.Policy filterPolicy = new DomainRules.Policy(
             Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
     private volatile boolean     stopRequested;
@@ -112,7 +114,6 @@ public class AdBlockVpnService extends VpnService {
     private final DnsRecoveryCooldown recoveryCooldown = new DnsRecoveryCooldown();
     private final ResolverRefreshQueue<Network> resolverRefreshQueue = new ResolverRefreshQueue<>();
     private volatile boolean dohEnabled;
-    private volatile String activeDohProvider = DohProvider.CLOUDFLARE;
     private volatile boolean dohHealthy;
     private volatile InetAddress upstream;    // the resolver that actually answers
     private volatile Network     underlying;  // the real (non-VPN) network
@@ -169,9 +170,7 @@ public class AdBlockVpnService extends VpnService {
         isStarting = true;
         AdBlockQuickTile.requestUpdate(this);
         consecutiveFailures.set(0);
-        FilterSettings transportSettings = new FilterSettings(this);
-        dohEnabled = transportSettings.dohEnabled();
-        activeDohProvider = transportSettings.dohProvider();
+        dohEnabled = new FilterSettings(this).dohEnabled();
         dohHealthy = false;
         recoveryCooldown.reset();
         resetStats();
@@ -195,7 +194,7 @@ public class AdBlockVpnService extends VpnService {
             underlying = pickUnderlying();
             if (dohEnabled) {
                 // Never silently downgrade an opted-in encrypted DNS session.
-                dohHealthy = underlying != null && DohClient.probe(underlying, activeDohProvider);
+                dohHealthy = underlying != null && DohClient.probe(underlying);
                 upstream = null;
                 if (!dohHealthy) {
                     upstreamInfo = "DoH unavailable";
@@ -204,7 +203,7 @@ public class AdBlockVpnService extends VpnService {
                     stopSelf();
                     return;
                 }
-                upstreamInfo = DohProvider.label(activeDohProvider) + " DoH";
+                upstreamInfo = "Cloudflare DoH";
             } else {
                 upstream = pickUpstream(underlying);
                 if (upstream == null) {
@@ -452,7 +451,7 @@ public class AdBlockVpnService extends VpnService {
         try {
             if (dohEnabled) {
                 try {
-                    response = DohClient.query(network, request.dns, DNS_TIMEOUT_MS, activeDohProvider);
+                    response = DohClient.query(network, request.dns, DNS_TIMEOUT_MS);
                     dohHealthy = true;
                 } catch (IOException dohFailure) {
                     // Failed DoH must return SERVFAIL to the TCP client, not
@@ -510,12 +509,14 @@ public class AdBlockVpnService extends VpnService {
     }
 
     private boolean isBlocked(String domain) {
-        return filterPolicy.shouldBlock(domain);
+        return !TemporaryAllowances.allows(temporaryAllowances, domain,
+                System.currentTimeMillis()) && filterPolicy.shouldBlock(domain);
     }
 
     private DomainRules.Policy readPolicy(boolean forceDownload) {
         FilterSettings settings = new FilterSettings(this);
         Set<String> remote = new BlocklistManager(this).load(forceDownload);
+        temporaryAllowances = TemporaryAllowances.immutable(settings.temporaryAllowedDomains());
         return new DomainRules.Policy(settings.allowedDomains(),
                 settings.blockedDomains(), remote);
     }
@@ -523,6 +524,7 @@ public class AdBlockVpnService extends VpnService {
     private DomainRules.Policy readPolicyCached() {
         FilterSettings settings = new FilterSettings(this);
         Set<String> remote = new BlocklistManager(this).loadCached();
+        temporaryAllowances = TemporaryAllowances.immutable(settings.temporaryAllowedDomains());
         return new DomainRules.Policy(settings.allowedDomains(),
                 settings.blockedDomains(), remote);
     }
@@ -603,7 +605,7 @@ public class AdBlockVpnService extends VpnService {
             if (dohEnabled) {
                 byte[] query = Arrays.copyOfRange(packet, parsed.dnsOffset,
                         parsed.dnsOffset + parsed.dnsLength);
-                byte[] dnsResponse = DohClient.query(network, query, DNS_TIMEOUT_MS, activeDohProvider);
+                byte[] dnsResponse = DohClient.query(network, query, DNS_TIMEOUT_MS);
                 if (dnsResponse.length > 1500 - parsed.ipHeaderLength - 8) {
                     errors.incrementAndGet();
                     sendServFail(packet, parsed, out);
@@ -778,7 +780,7 @@ public class AdBlockVpnService extends VpnService {
                         Network candidate = usableNetwork(request.preferred)
                                 ? request.preferred : pickUnderlying();
                         boolean secured = dohEnabled && candidate != null
-                                && DohClient.probe(candidate, activeDohProvider);
+                                && DohClient.probe(candidate);
                         InetAddress dns = dohEnabled || candidate == null
                                 ? null : pickUpstream(candidate);
                         if (stopRequested) return;
@@ -789,7 +791,7 @@ public class AdBlockVpnService extends VpnService {
                             underlying = candidate;
                             upstream = dns;
                             dohHealthy = secured;
-                            upstreamInfo = dohEnabled ? DohProvider.label(activeDohProvider) + " DoH" : dns.getHostAddress();
+                            upstreamInfo = dohEnabled ? "Cloudflare DoH" : dns.getHostAddress();
                             consecutiveFailures.set(0);
                             try {
                                 setUnderlyingNetworks(new Network[]{candidate});
