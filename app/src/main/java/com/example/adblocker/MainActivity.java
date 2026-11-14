@@ -75,6 +75,8 @@ public final class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.settingsButton).setOnClickListener(v ->
                 startActivity(new Intent(this, SettingsActivity.class)));
+        findViewById(R.id.diagnosticsButton).setOnClickListener(v ->
+                startActivity(new Intent(this, DiagnosticsActivity.class)));
         findViewById(R.id.openLogButton).setOnClickListener(v ->
                 startActivity(new Intent(this, ActivityLogActivity.class)));
         toggleButton.setOnClickListener(v -> toggleProtection());

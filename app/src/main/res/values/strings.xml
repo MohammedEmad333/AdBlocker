@@ -119,4 +119,17 @@
     <string name="notification_blocked_count">Blocked %1$d requests</string>
     <string name="notification_title">AdBlocker is running</string>
     <string name="notification_stop">Stop</string>
+    <string name="diagnostics_title">DNS diagnostics</string>
+    <string name="diagnostics_back">Back</string>
+    <string name="diagnostics_refresh">Refresh session status</string>
+    <string name="diagnostics_state">Session: %1$s</string>
+    <string name="diagnostics_stopped">Stopped</string>
+    <string name="diagnostics_starting">Starting</string>
+    <string name="diagnostics_idle">Running; no completed DNS checks yet</string>
+    <string name="diagnostics_healthy">Mostly successful DNS responses</string>
+    <string name="diagnostics_degraded">High DNS failure rate</string>
+    <string name="diagnostics_upstream">Resolver: %1$s</string>
+    <string name="diagnostics_counters">Queries: %1$d · Answers: %2$d · Timeouts: %3$d · Errors: %4$d</string>
+    <string name="diagnostics_domains">Loaded blocklist domains: %1$d</string>
+    <string name="diagnostics_disclaimer">Session counters only. This screen does not perform a DNS leak test or prove that every app is protected. VPN routing and encrypted DNS need real-device validation.</string>
 </resources>

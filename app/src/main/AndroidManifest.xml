@@ -46,6 +46,7 @@
 
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".ActivityLogActivity" android:exported="false" />
+        <activity android:name=".DiagnosticsActivity" android:exported="false" />
 
         <!-- Persist language selections for Android 8-12 through AppCompat. -->
         <service
