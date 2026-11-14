@@ -111,6 +111,8 @@ public class AdBlockVpnService extends VpnService {
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
     private final DnsRecoveryCooldown recoveryCooldown = new DnsRecoveryCooldown();
     private final ResolverRefreshQueue<Network> resolverRefreshQueue = new ResolverRefreshQueue<>();
+    private volatile boolean dohEnabled;
+    private volatile boolean dohHealthy;
     private volatile InetAddress upstream;    // the resolver that actually answers
     private volatile Network     underlying;  // the real (non-VPN) network
     private volatile ConnectivityManager.NetworkCallback networkCallback;
@@ -166,6 +168,8 @@ public class AdBlockVpnService extends VpnService {
         isStarting = true;
         AdBlockQuickTile.requestUpdate(this);
         consecutiveFailures.set(0);
+        dohEnabled = new FilterSettings(this).dohEnabled();
+        dohHealthy = false;
         recoveryCooldown.reset();
         resetStats();
         tcpTunnel.clear();
@@ -186,16 +190,30 @@ public class AdBlockVpnService extends VpnService {
             // Do this BEFORE establish(): with no tunnel up yet, these probes
             // go out over the normal network with nothing to interfere.
             underlying = pickUnderlying();
-            upstream   = pickUpstream(underlying);
-            if (stopRequested) return;
-            if (upstream == null) {
-                upstreamInfo = "none reachable";
-                lastError = "no DNS server answered";
-                Log.e(TAG, "No upstream DNS answered -- refusing to start");
-                stopSelf();
-                return;
+            if (dohEnabled) {
+                // Never silently downgrade an opted-in encrypted DNS session.
+                dohHealthy = underlying != null && DohClient.probe(underlying);
+                upstream = null;
+                if (!dohHealthy) {
+                    upstreamInfo = "DoH unavailable";
+                    lastError = "encrypted DNS unavailable";
+                    Log.e(TAG, "DoH probe failed -- refusing unencrypted fallback");
+                    stopSelf();
+                    return;
+                }
+                upstreamInfo = "Cloudflare DoH";
+            } else {
+                upstream = pickUpstream(underlying);
+                if (upstream == null) {
+                    upstreamInfo = "none reachable";
+                    lastError = "no DNS server answered";
+                    Log.e(TAG, "No upstream DNS answered -- refusing to start");
+                    stopSelf();
+                    return;
+                }
+                upstreamInfo = upstream.getHostAddress();
             }
-            upstreamInfo = upstream.getHostAddress();
+            if (stopRequested) return;
             Log.i(TAG, "Upstream DNS: " + upstreamInfo);
 
             Builder builder = new Builder();
@@ -261,7 +279,9 @@ public class AdBlockVpnService extends VpnService {
             // Retry offline or degraded DNS recovery without requiring another
             // application lookup; the cooldown avoids rapid repeated probes.
             tcpScheduler.scheduleWithFixedDelay(() -> {
-                if (!stopRequested && (upstream == null || consecutiveFailures.get() >= 3)) {
+                if (!stopRequested
+                        && ((dohEnabled ? !dohHealthy : upstream == null)
+                            || consecutiveFailures.get() >= 3)) {
                     scheduleResolverRecovery();
                 }
             }, 15, 15, TimeUnit.SECONDS);
@@ -427,7 +447,16 @@ public class AdBlockVpnService extends VpnService {
         InetAddress server = upstream;
         Network network = underlying;
         try {
-            if (server != null) {
+            if (dohEnabled) {
+                try {
+                    response = DohClient.query(network, request.dns, DNS_TIMEOUT_MS);
+                    dohHealthy = true;
+                } catch (IOException dohFailure) {
+                    // Failed DoH must return SERVFAIL to the TCP client, not
+                    // stall the flow or fall back to plaintext port 53.
+                    Log.w(TAG, "DoH TCP query unavailable: " + dohFailure.getMessage());
+                }
+            } else if (server != null) {
                 response = retryTruncatedOverTcp(request.dns, server, network);
                 if (response == null) response = resolveDnsViaUdp(request.dns, server, network);
             }
@@ -568,6 +597,22 @@ public class AdBlockVpnService extends VpnService {
             if (stopRequested) return;
             InetAddress resolver = upstream;
             Network network = underlying;
+            if (dohEnabled) {
+                byte[] query = Arrays.copyOfRange(packet, parsed.dnsOffset,
+                        parsed.dnsOffset + parsed.dnsLength);
+                byte[] dnsResponse = DohClient.query(network, query, DNS_TIMEOUT_MS);
+                if (dnsResponse.length > 1500 - parsed.ipHeaderLength - 8) {
+                    errors.incrementAndGet();
+                    sendServFail(packet, parsed, out);
+                    return;
+                }
+                writeReply(out, DnsTunnelPacket.wrapReply(packet, parsed, dnsResponse));
+                if ((dnsResponse[3] & 15) != 2) QUERY_STATS.recordAllowedResponse();
+                answered.incrementAndGet();
+                consecutiveFailures.set(0);
+                dohHealthy = true;
+                return;
+            }
             if (resolver == null) {
                 errors.incrementAndGet();
                 sendServFail(packet, parsed, out);
@@ -708,6 +753,7 @@ public class AdBlockVpnService extends VpnService {
 
     private void recordUpstreamFailure() {
         if (stopRequested || consecutiveFailures.incrementAndGet() < 3) return;
+        if (dohEnabled) dohHealthy = false;
         scheduleResolverRecovery();
     }
 
@@ -728,25 +774,30 @@ public class AdBlockVpnService extends VpnService {
                     try {
                         Network candidate = usableNetwork(request.preferred)
                                 ? request.preferred : pickUnderlying();
-                        InetAddress dns = candidate == null ? null : pickUpstream(candidate);
+                        boolean secured = dohEnabled && candidate != null
+                                && DohClient.probe(candidate);
+                        InetAddress dns = dohEnabled || candidate == null
+                                ? null : pickUpstream(candidate);
                         if (stopRequested) return;
                         // A newer network event arrived during DNS probing. Do not
                         // publish a stale result before processing that event.
                         if (resolverRefreshQueue.hasPending()) continue;
-                        if (dns != null) {
+                        if (dohEnabled ? secured : dns != null) {
                             underlying = candidate;
                             upstream = dns;
-                            upstreamInfo = dns.getHostAddress();
+                            dohHealthy = secured;
+                            upstreamInfo = dohEnabled ? "Cloudflare DoH" : dns.getHostAddress();
                             consecutiveFailures.set(0);
                             try {
                                 setUnderlyingNetworks(new Network[]{candidate});
                             } catch (RuntimeException e) {
                                 Log.w(TAG, "Could not update underlying network", e);
                             }
-                        } else if (!usableNetwork(underlying)) {
+                        } else if (dohEnabled || !usableNetwork(underlying)) {
                             underlying = null;
                             upstream = null;
-                            upstreamInfo = "waiting for network";
+                            dohHealthy = false;
+                            upstreamInfo = dohEnabled ? "DoH unavailable" : "waiting for network";
                         }
                     } catch (RuntimeException e) {
                         Log.w(TAG, "DNS recovery probe failed", e);
