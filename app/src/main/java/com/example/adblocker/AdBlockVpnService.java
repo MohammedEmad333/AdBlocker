@@ -104,6 +104,7 @@ public class AdBlockVpnService extends VpnService {
     private volatile ScheduledExecutorService filterScheduler;
     private volatile ScheduledExecutorService tcpScheduler;
     private final DnsTcpTunnel tcpTunnel = new DnsTcpTunnel();
+    private final DnsResponseCache dnsCache = new DnsResponseCache();
     private final FilterRefreshQueue filterRefreshQueue = new FilterRefreshQueue();
     private volatile DomainRules.Policy filterPolicy = new DomainRules.Policy(
             Collections.emptySet(), Collections.emptySet(), Collections.emptySet());
@@ -176,6 +177,7 @@ public class AdBlockVpnService extends VpnService {
         recoveryCooldown.reset();
         resetStats();
         tcpTunnel.clear();
+        dnsCache.clear();
         vpnThread = new Thread(this::runVpn, "AdBlockVpnThread");
         vpnThread.start();
     }
@@ -600,9 +602,16 @@ public class AdBlockVpnService extends VpnService {
             if (stopRequested) return;
             InetAddress resolver = upstream;
             Network network = underlying;
+            byte[] query = Arrays.copyOfRange(packet, parsed.dnsOffset,
+                    parsed.dnsOffset + parsed.dnsLength);
+            byte[] cached = dnsCache.get(query, android.os.SystemClock.elapsedRealtime());
+            if (cached != null) {
+                writeReply(out, DnsTunnelPacket.wrapReply(packet, parsed, cached));
+                answered.incrementAndGet();
+                QUERY_STATS.recordAllowedResponse();
+                return;
+            }
             if (dohEnabled) {
-                byte[] query = Arrays.copyOfRange(packet, parsed.dnsOffset,
-                        parsed.dnsOffset + parsed.dnsLength);
                 byte[] dnsResponse = DohClient.query(network, query, DNS_TIMEOUT_MS, activeDohProvider);
                 if (dnsResponse.length > 1500 - parsed.ipHeaderLength - 8) {
                     errors.incrementAndGet();
@@ -610,6 +619,7 @@ public class AdBlockVpnService extends VpnService {
                     return;
                 }
                 writeReply(out, DnsTunnelPacket.wrapReply(packet, parsed, dnsResponse));
+                dnsCache.put(query, dnsResponse, android.os.SystemClock.elapsedRealtime());
                 if ((dnsResponse[3] & 15) != 2) QUERY_STATS.recordAllowedResponse();
                 answered.incrementAndGet();
                 consecutiveFailures.set(0);
@@ -627,8 +637,6 @@ public class AdBlockVpnService extends VpnService {
             sock.connect(resolver, 53);
             sock.setSoTimeout(DNS_TIMEOUT_MS);
 
-            byte[] query = Arrays.copyOfRange(packet, parsed.dnsOffset,
-                    parsed.dnsOffset + parsed.dnsLength);
             sock.send(new DatagramPacket(query, query.length));
             byte[] buf = new byte[4096];
             DatagramPacket resp = new DatagramPacket(buf, buf.length);
@@ -653,6 +661,7 @@ public class AdBlockVpnService extends VpnService {
                 return;
             }
             writeReply(out, DnsTunnelPacket.wrapReply(packet, parsed, dnsResponse));
+            dnsCache.put(query, dnsResponse, android.os.SystemClock.elapsedRealtime());
             if ((dnsResponse[3] & 15) != 2) QUERY_STATS.recordAllowedResponse();
             answered.incrementAndGet();
             consecutiveFailures.set(0);
@@ -769,7 +778,9 @@ public class AdBlockVpnService extends VpnService {
 
     /** Serialize recovery probes and replay changes received during an active probe. */
     private void requestResolverRefresh(Network preferred) {
-        if (stopRequested || !isRunning || !resolverRefreshQueue.request(preferred)) return;
+        if (stopRequested || !isRunning) return;
+        dnsCache.clear();
+        if (!resolverRefreshQueue.request(preferred)) return;
         Thread recovery = new Thread(() -> {
             try {
                 ResolverRefreshQueue.Request<Network> request;
