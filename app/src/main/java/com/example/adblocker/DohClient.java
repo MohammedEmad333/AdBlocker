@@ -17,18 +17,23 @@ import java.util.Locale;
  * virtual resolver. TLS hostname verification is provided by Android.
  */
 final class DohClient {
-    static final String ENDPOINT = "https://cloudflare-dns.com/dns-query";
+    static final String ENDPOINT = DohProvider.endpoint(DohProvider.CLOUDFLARE);
     static final String MIME = "application/dns-message";
     private static final int MAX_RESPONSE = DnsTcpWire.MAX_DNS_RESPONSE;
 
     private DohClient() {}
 
     static byte[] query(Network network, byte[] dns, int timeoutMs) throws IOException {
+        return query(network, dns, timeoutMs, DohProvider.CLOUDFLARE);
+    }
+
+    static byte[] query(Network network, byte[] dns, int timeoutMs, String provider)
+            throws IOException {
         if (network == null) throw new IOException("No underlying network");
         if (dns == null || dns.length < 17 || dns.length > 4096)
             throw new IOException("Invalid DNS query length");
         HttpURLConnection conn = (HttpURLConnection) network
-                .openConnection(new URL(ENDPOINT));
+                .openConnection(new URL(DohProvider.endpoint(provider)));
         try {
             conn.setInstanceFollowRedirects(false);
             conn.setRequestMethod("POST");
@@ -74,9 +79,13 @@ final class DohClient {
     }
 
     static boolean probe(Network network) {
+        return probe(network, DohProvider.CLOUDFLARE);
+    }
+
+    static boolean probe(Network network, String provider) {
         try {
             byte[] query = DnsPacket.buildQuery("example.com", 0x4a21);
-            return query(network, query, 4000) != null;
+            return query(network, query, 4000, provider) != null;
         } catch (IOException e) {
             return false;
         }

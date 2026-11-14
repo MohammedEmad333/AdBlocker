@@ -63,6 +63,7 @@
     <string name="settings_doh_enable">Encrypt outgoing DNS using Cloudflare DoH</string>
     <string name="settings_doh_explain">Optional. Queries handled by this VPN are sent over HTTPS. If DoH is unavailable, protection does not switch to unencrypted DNS automatically. Restart protection after changing.</string>
     <string name="settings_doh_restart">Restart protection to apply DNS transport change</string>
+    <string name="settings_doh_provider_label">Encrypted DNS provider (restart to apply)</string>
     <string name="settings_preset_title">Protection profiles</string>
     <string name="settings_preset_current">Current profile: %1$s</string>
     <string name="settings_preset_balanced">Use balanced protection</string>
