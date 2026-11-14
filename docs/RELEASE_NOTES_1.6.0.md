@@ -11,8 +11,8 @@
   upstream provider, DNS answers, timeouts and error counts. Diagnostics
   do not establish absence of leaks or complete device-wide coverage.
 - Temporarily allow an exact blocked domain for 15 or 60 minutes without
-  changing permanent rules. A limit of 100 temporary entries applies.
-  Device clock changes can affect expiry times.
+  changing permanent rules. At most 128 session-only entries are held in
+  memory. Expiry uses monotonic elapsed time; restarting VPN clears them.
 - Conservative in-memory TTL-aware 128-entry cache for simple positive
   A/AAAA UDP DNS replies (not negative DNS, TCP, EDNS, DNSSEC or complex
   answers). Cached values are cleared on resolver recovery or VPN startup.
@@ -27,8 +27,8 @@ These features are included only after their PRs pass CI and are merged.
    DNS filtering, Wi-Fi/cellular handoff, airplane mode and DNS/TCP.
 3. Test all three DoH providers with working networks, failures, invalid
    certificates, captive portals and intentional no-plaintext-fallback.
-4. Verify temporary allows, expiry and changes to device time, app process
-   restart, activity log interactions and active VPN policy reload.
+4. Verify temporary allows, expiry, device-clock changes, app process
+   restart, activity log interactions and VPN session reset.
 5. Validate TTL cache behavior on IPv4/IPv6, compressed answers,
    simultaneous requests, stale network changes and memory limits.
 6. Review custom HTTPS blocklist hostname/IP changes, signing, stable
