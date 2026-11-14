@@ -67,8 +67,8 @@ final class DnsResponseCache {
 
         int end = DnsPacket.questionEnd(reply, 0, reply.length);
         if (end != query.length || !Arrays.equals(
-                Arrays.copyOfRange(query, 2, end),
-                Arrays.copyOfRange(reply, 2, end))) return;
+                Arrays.copyOfRange(query, 12, end),
+                Arrays.copyOfRange(reply, 12, end))) return;
 
         // Support one standard compressed answer pointing at the question.
         if (reply.length < end + 16 || (reply[end] & 255) != 0xc0
