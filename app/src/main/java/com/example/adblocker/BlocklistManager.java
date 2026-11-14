@@ -94,18 +94,18 @@ public class BlocklistManager {
 
         if (settings.sourceEnabled(FilterSettings.STEVENBLACK)) {
             anyEnabled = true;
-            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, cacheOnly, settings, status));
+            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, cacheOnly, false, settings, status));
         }
         if (settings.sourceEnabled(FilterSettings.ADAWAY)) {
             anyEnabled = true;
-            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, settings, status));
+            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, false, settings, status));
         }
 
         String custom = settings.customBlocklistUrl();
         if (!custom.isEmpty()) {
             anyEnabled = true;
             combined.addAll(loadSource(custom, CustomBlocklistUrl.cacheName(custom),
-                    force, cacheOnly, settings, status));
+                    force, cacheOnly, true, settings, status));
         }
 
         // An explicit choice to disable all remote sources must not be overridden.
@@ -118,16 +118,16 @@ public class BlocklistManager {
     }
 
     private Set<String> loadSource(String sourceUrl, String fileName, boolean force,
-                                   boolean cacheOnly, FilterSettings settings,
+                                   boolean cacheOnly, boolean custom, FilterSettings settings,
                                    BlocklistRefreshStatus status) {
         File cache = new File(context.getFilesDir(), fileName);
         boolean fresh = cache.exists()
-                && cache.length() > 1024
+                && BlocklistSourcePolicy.cacheUsable(cache.length(), custom)
                 && System.currentTimeMillis() - cache.lastModified() < MAX_CACHE_AGE_MS;
         if (!cacheOnly && (force || !fresh)) {
             try {
-                download(sourceUrl, cache, sourceUrl.startsWith("https://raw.githubusercontent.com/")
-                        ? 1000 : 10);
+                download(sourceUrl, cache, BlocklistSourcePolicy.minimumDomains(custom),
+                        BlocklistSourcePolicy.minimumBytes(custom));
                 settings.markDownloaded();
                 if (status != null) status.recordSuccess();
             } catch (IOException e) {
@@ -136,7 +136,7 @@ public class BlocklistManager {
             }
         }
 
-        if (cache.exists() && cache.length() <= MAX_BLOCKLIST_BYTES) {
+        if (cache.exists() && BlocklistSourcePolicy.cacheUsable(cache.length(), custom)) {
             try (InputStream in = new FileInputStream(cache)) {
                 Set<String> parsed = parse(in);
                 if (!parsed.isEmpty()) {
@@ -150,7 +150,8 @@ public class BlocklistManager {
         return new HashSet<>();
     }
 
-    private void download(String sourceUrl, File cache, int minDomains) throws IOException {
+    private void download(String sourceUrl, File cache, int minDomains,
+                          long minBytes) throws IOException {
         Log.i(TAG, "Downloading source " + sourceUrl);
         File tmp = new File(cache.getPath() + ".tmp");
         URL url = new URL(sourceUrl);
@@ -184,7 +185,7 @@ public class BlocklistManager {
                     out.write(buf, 0, n);
                 }
             }
-            if (tmp.length() < 1024) throw new IOException("Blocklist download too small");
+            if (tmp.length() < minBytes) throw new IOException("Blocklist download too small");
             try (InputStream check = new FileInputStream(tmp)) {
                 if (parse(check).size() < minDomains) {
                     throw new IOException("Blocklist download did not contain enough domains");
