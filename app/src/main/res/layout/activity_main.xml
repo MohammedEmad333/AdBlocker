@@ -258,6 +258,17 @@
             android:lineSpacingExtra="5dp" />
 
         <Button
+            android:id="@+id/diagnosticsButton"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/pill_outline"
+            android:text="@string/diagnostics_title"
+            android:textAllCaps="false"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+
+        <Button
             android:id="@+id/openLogButton"
             android:layout_width="match_parent"
             android:layout_height="54dp"
