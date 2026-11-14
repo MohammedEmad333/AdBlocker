@@ -75,6 +75,22 @@ public class AdBlockVpnService extends VpnService {
 
     /** Ephemeral and bounded DNS activity, cleared whenever a VPN session starts. */
     public static final DnsHistory HISTORY = new DnsHistory(512);
+    private static final TemporaryDomainAllowlist TEMPORARY_ALLOWED =
+            new TemporaryDomainAllowlist();
+
+    /**
+     * User-initiated, RAM-only exact-domain exception for this VPN session.
+     * Requires an active VPN, never changes permanent domain preferences.
+     */
+    public static boolean allowTemporarily(String domain, long durationMs) {
+        if (!isRunning) return false;
+        return TEMPORARY_ALLOWED.grant(domain, durationMs,
+                android.os.SystemClock.elapsedRealtime());
+    }
+
+    public static int temporaryAllowanceCount() {
+        return TEMPORARY_ALLOWED.activeCount(android.os.SystemClock.elapsedRealtime());
+    }
 
     private static void note(String domain, boolean blocked) {
         HISTORY.add(domain, blocked, System.currentTimeMillis());
@@ -96,6 +112,7 @@ public class AdBlockVpnService extends VpnService {
         HISTORY.clear();
         QUERY_STATS.reset();
         remoteDomainCount = 0;
+        TEMPORARY_ALLOWED.clear();
     }
 
     private ParcelFileDescriptor tunInterface;
@@ -311,6 +328,7 @@ public class AdBlockVpnService extends VpnService {
             resolverRefreshQueue.reset();
             if (tcpScheduler != null) tcpScheduler.shutdownNow();
             tcpTunnel.clear();
+            TEMPORARY_ALLOWED.clear();
             closeTun();
             isRunning = false;
             isStarting = false;
@@ -510,7 +528,9 @@ public class AdBlockVpnService extends VpnService {
     }
 
     private boolean isBlocked(String domain) {
-        return filterPolicy.shouldBlock(domain);
+        return !TEMPORARY_ALLOWED.isAllowed(domain,
+                android.os.SystemClock.elapsedRealtime())
+                && filterPolicy.shouldBlock(domain);
     }
 
     private DomainRules.Policy readPolicy(boolean forceDownload) {
