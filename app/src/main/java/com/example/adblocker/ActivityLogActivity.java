@@ -142,7 +142,31 @@ public final class ActivityLogActivity extends AppCompatActivity {
             rule.setAllCaps(false);
             rule.setOnClickListener(v -> changeRule(row.domain, allow));
             item.addView(rule);
+            if (row.blocked && AdBlockVpnService.isRunning) {
+                Button fifteen = new Button(this);
+                fifteen.setText(R.string.log_allow_15_minutes);
+                fifteen.setAllCaps(false);
+                fifteen.setOnClickListener(v -> allowTemporarily(
+                        row.domain, TemporaryDomainAllowlist.FIFTEEN_MINUTES));
+                item.addView(fifteen);
+
+                Button hour = new Button(this);
+                hour.setText(R.string.log_allow_one_hour);
+                hour.setAllCaps(false);
+                hour.setOnClickListener(v -> allowTemporarily(
+                        row.domain, TemporaryDomainAllowlist.ONE_HOUR));
+                item.addView(hour);
+            }
         }
+    }
+
+    private void allowTemporarily(String domain, long durationMs) {
+        if (!AdBlockVpnService.allowTemporarily(domain, durationMs)) {
+            Toast.makeText(this, R.string.log_temp_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, getString(R.string.log_temp_saved, domain),
+                Toast.LENGTH_SHORT).show();
     }
 
     private void changeRule(String domain, boolean allow) {
