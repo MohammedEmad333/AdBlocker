@@ -20,6 +20,7 @@ public final class FilterSettings {
     private static final String LAST_MANUAL_REFRESH = "last_manual_refresh_state";
     private static final String CUSTOM_BLOCKLIST = "custom_https_blocklist";
     private static final String USE_DOH = "use_doh_transport";
+    private static final String DOH_PROVIDER = "doh_provider";
     private static final String TEMP_ALLOW = "temporary_allowed_domains";
 
     public enum ManualRefreshState {
@@ -101,6 +102,14 @@ public final class FilterSettings {
 
     private Set<String> copy(String key) {
         return new HashSet<>(prefs.getStringSet(key, Collections.emptySet()));
+    }
+
+    public String dohProvider() {
+        return DohProvider.normalize(prefs.getString(DOH_PROVIDER, DohProvider.CLOUDFLARE));
+    }
+
+    public void setDohProvider(String provider) {
+        prefs.edit().putString(DOH_PROVIDER, DohProvider.normalize(provider)).apply();
     }
 
     public boolean dohEnabled() {
