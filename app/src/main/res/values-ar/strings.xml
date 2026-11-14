@@ -80,6 +80,17 @@
     <string name="settings_allowed_domains">النطاقات المسموحة (تتجاوز قوائم الحظر)</string>
     <string name="settings_blocked_domains">النطاقات المحظورة (تشمل النطاقات الفرعية)</string>
     <string name="settings_add_domain">إضافة نطاق</string>
+    <string name="settings_backup_title">النسخ الاحتياطي لقواعد النطاقات</string>
+    <string name="settings_rules_export">تصدير النطاقات المسموحة والمحظورة</string>
+    <string name="settings_rules_import">استيراد قواعد النطاقات من ملف</string>
+    <string name="settings_rules_import_confirm">هل تريد استبدال قواعد السماح والحظر الحالية بـ %1$d نطاقًا مسموحًا و%2$d نطاقًا محظورًا؟ ستبقى استثناءات التطبيقات دون تغيير.</string>
+    <string name="settings_rules_exported">تم تصدير القواعد بنجاح</string>
+    <string name="settings_rules_imported">تم استيراد القواعد بنجاح</string>
+    <string name="settings_rules_invalid">ملف القواعد غير صالح. لم تتغير القواعد الحالية.</string>
+    <string name="settings_rules_export_failed">تعذر تصدير قواعد النطاقات</string>
+    <string name="settings_rules_cancel">إلغاء</string>
+    <string name="settings_rules_replace">استبدال القواعد</string>
+    <string name="settings_rules_explain">يشمل الملف قواعد النطاقات المخصصة فقط ولا يشمل سجل DNS. تُفحص كل القواعد قبل استبدالها.</string>
     <string name="settings_domain_error">أدخل نطاقًا فقط مثل example.com</string>
     <string name="settings_no_domains">لا توجد نطاقات مخصصة</string>
     <string name="settings_remove_domain">حذف %1$s</string>
