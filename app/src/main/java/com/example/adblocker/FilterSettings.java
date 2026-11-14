@@ -20,7 +20,7 @@ public final class FilterSettings {
     private static final String LAST_MANUAL_REFRESH = "last_manual_refresh_state";
     private static final String CUSTOM_BLOCKLIST = "custom_https_blocklist";
     private static final String USE_DOH = "use_doh_transport";
-    private static final String DOH_PROVIDER = "doh_provider";
+    private static final String TEMP_ALLOW = "temporary_allowed_domains";
 
     public enum ManualRefreshState {
         NEVER, RUNNING, SUCCESS, PARTIAL, FAILED, NO_SOURCES;
@@ -69,6 +69,24 @@ public final class FilterSettings {
         return true;
     }
 
+    public java.util.Map<String, Long> temporaryAllowedDomains() {
+        return TemporaryAllowances.parse(copy(TEMP_ALLOW), System.currentTimeMillis());
+    }
+
+    /** Short-lived exact-domain exception, at most 100 active entries. */
+    public synchronized boolean allowTemporarily(String input, long durationMs) {
+        String domain = DomainRules.normalize(input);
+        if (domain == null || (durationMs != TemporaryAllowances.FIFTEEN_MINUTES
+                && durationMs != TemporaryAllowances.ONE_HOUR)) return false;
+        long now = System.currentTimeMillis();
+        java.util.Map<String, Long> existing = temporaryAllowedDomains();
+        if (!existing.containsKey(domain) && existing.size() >= TemporaryAllowances.LIMIT)
+            return false;
+        existing.put(domain, now + durationMs);
+        prefs.edit().putStringSet(TEMP_ALLOW, TemporaryAllowances.encode(existing)).apply();
+        return true;
+    }
+
     public Set<String> allowedDomains() {
         return copy(ALLOW);
     }
@@ -83,14 +101,6 @@ public final class FilterSettings {
 
     private Set<String> copy(String key) {
         return new HashSet<>(prefs.getStringSet(key, Collections.emptySet()));
-    }
-
-    public String dohProvider() {
-        return DohProvider.normalize(prefs.getString(DOH_PROVIDER, DohProvider.CLOUDFLARE));
-    }
-
-    public void setDohProvider(String provider) {
-        prefs.edit().putString(DOH_PROVIDER, DohProvider.normalize(provider)).apply();
     }
 
     public boolean dohEnabled() {
