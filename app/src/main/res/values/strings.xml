@@ -101,7 +101,7 @@
     <string name="settings_custom_source_invalid">Enter a valid public HTTPS URL without credentials, query parameters or redirects</string>
     <string name="settings_custom_source_saved">Custom source saved; refresh to download</string>
     <string name="settings_custom_source_removed">Custom source removed</string>
-    <string name="settings_custom_source_caution">Only add sources you trust. Custom sources can block legitimate sites. At most one URL is supported.</string>
+    <string name="settings_custom_source_caution">Only add sources you trust. They can block legitimate sites. Up to three HTTPS sources can be enabled independently.</string>
     <string name="settings_allowed_domains">Allowed domains (override all lists)</string>
     <string name="settings_blocked_domains">Blocked domains (include subdomains)</string>
     <string name="settings_add_domain">Add domain</string>
