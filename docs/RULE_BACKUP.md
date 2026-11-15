@@ -23,3 +23,15 @@ Importing new rules while VPN is active requests a policy reload.
 - Empty files, malformed text, internationalized domains, denied providers,
   inaccessible removable storage, cancellation and VPN-on refresh.
 - No public release until signed-upgrade and DNS filtering device tests pass.
+
+
+## AdBlocker 1.7: merge without replacing existing rules
+
+Import now offers **Replace rules** or **Merge rules**. Merge previews the
+number of new allowed domains, newly blocked domains and exact-domain
+conflicts before asking for confirmation. **Existing rules win** any conflict,
+and unrelated rules are preserved. The merged sets are written together in
+one preferences transaction after validation; the app refuses a combined
+result exceeding 2,000 rules. A second import of the same file is idempotent.
+The preview is recomputed at confirmation to avoid overriding rules changed
+while the dialog was open. Device UI testing remains required.
