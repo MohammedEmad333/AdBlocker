@@ -101,8 +101,10 @@ public class BlocklistManager {
             combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, false, settings, status));
         }
 
-        String custom = settings.customBlocklistUrl();
-        if (!custom.isEmpty()) {
+        for (java.util.Map.Entry<String, Boolean> subscription
+                : settings.customBlocklistSources().entrySet()) {
+            if (!Boolean.TRUE.equals(subscription.getValue())) continue;
+            String custom = subscription.getKey();
             anyEnabled = true;
             combined.addAll(loadSource(custom, CustomBlocklistUrl.cacheName(custom),
                     force, cacheOnly, true, settings, status));
@@ -140,6 +142,7 @@ public class BlocklistManager {
             try (InputStream in = new FileInputStream(cache)) {
                 Set<String> parsed = parse(in);
                 if (!parsed.isEmpty()) {
+                    if (custom) settings.setCustomSourceDomainCount(sourceUrl, parsed.size());
                     Log.i(TAG, "Loaded " + parsed.size() + " domains from " + fileName);
                     return parsed;
                 }
