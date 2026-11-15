@@ -40,6 +40,18 @@ public final class DnsHistory {
     private final int capacity;
     private final ArrayDeque<Entry> entries = new ArrayDeque<>();
     private long version;
+    private boolean recordingEnabled = true;
+
+    /** Disable recording and immediately erase any previously captured events. */
+    public synchronized void setRecordingEnabled(boolean enabled) {
+        recordingEnabled = enabled;
+        if (!enabled) entries.clear();
+        version++;
+    }
+
+    public synchronized boolean recordingEnabled() {
+        return recordingEnabled;
+    }
 
     public DnsHistory(int capacity) {
         if (capacity < 1) throw new IllegalArgumentException("capacity must be positive");
@@ -47,7 +59,7 @@ public final class DnsHistory {
     }
 
     public synchronized void add(String domain, boolean blocked, long timeMillis) {
-        if (domain == null || domain.isEmpty()) return;
+        if (!recordingEnabled || domain == null || domain.isEmpty()) return;
         entries.addFirst(new Entry(domain, blocked, timeMillis));
         while (entries.size() > capacity) entries.removeLast();
         version++;
