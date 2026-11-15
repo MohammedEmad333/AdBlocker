@@ -21,6 +21,7 @@ public final class FilterSettings {
     private static final String CUSTOM_BLOCKLIST = "custom_https_blocklist";
     private static final String USE_DOH = "use_doh_transport";
     private static final String DOH_PROVIDER = "doh_provider";
+    private static final String DNS_HISTORY_ENABLED = "dns_history_enabled";
 
     public enum ManualRefreshState {
         NEVER, RUNNING, SUCCESS, PARTIAL, FAILED, NO_SOURCES;
@@ -83,6 +84,14 @@ public final class FilterSettings {
 
     private Set<String> copy(String key) {
         return new HashSet<>(prefs.getStringSet(key, Collections.emptySet()));
+    }
+
+    public boolean dnsHistoryEnabled() {
+        return prefs.getBoolean(DNS_HISTORY_ENABLED, true);
+    }
+
+    public void setDnsHistoryEnabled(boolean enabled) {
+        prefs.edit().putBoolean(DNS_HISTORY_ENABLED, enabled).apply();
     }
 
     public String dohProvider() {
