@@ -112,6 +112,8 @@
     <string name="settings_no_domains">لا توجد نطاقات مخصصة</string>
     <string name="settings_remove_domain">حذف %1$s</string>
     <string name="settings_apps">التطبيقات المستثناة من التصفية</string>
+    <string name="settings_apps_search">ابحث باسم التطبيق أو الحزمة</string>
+    <string name="settings_apps_no_matches">لا توجد تطبيقات مطابقة</string>
     <string name="settings_apps_explain">تتجاوز التطبيقات المستثناة VPN. أعد تشغيل الحماية بعد التعديل.</string>
     <string name="settings_no_apps">لم يُعثر على تطبيقات قابلة للتشغيل</string>
     <string name="settings_restart_needed">أعد تشغيل VPN لتطبيق استثناءات التطبيقات</string>
