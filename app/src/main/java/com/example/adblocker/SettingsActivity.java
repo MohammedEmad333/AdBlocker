@@ -141,6 +141,18 @@ public final class SettingsActivity extends AppCompatActivity {
         label(getString(R.string.settings_description), 13, R.color.muted);
         languageSelector();
 
+        section(getString(R.string.settings_privacy_title));
+        CheckBox captureHistory = new CheckBox(this);
+        captureHistory.setText(R.string.settings_privacy_history);
+        captureHistory.setTextColor(getColor(R.color.text));
+        captureHistory.setChecked(settings.dnsHistoryEnabled());
+        captureHistory.setOnCheckedChangeListener((button, checked) -> {
+            settings.setDnsHistoryEnabled(checked);
+            AdBlockVpnService.HISTORY.setRecordingEnabled(checked);
+        });
+        root.addView(captureHistory);
+        label(getString(R.string.settings_privacy_history_hint), 12, R.color.muted);
+
         section(getString(R.string.settings_dns_transport_title));
         CheckBox encrypted = new CheckBox(this);
         encrypted.setText(R.string.settings_doh_enable);

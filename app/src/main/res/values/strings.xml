@@ -62,6 +62,9 @@
     <string name="language_system">System default</string>
     <string name="language_arabic">Arabic</string>
     <string name="language_english">English</string>
+    <string name="settings_privacy_title">DNS activity privacy</string>
+    <string name="settings_privacy_history">Record recent DNS activity in memory</string>
+    <string name="settings_privacy_history_hint">Turning this off erases current DNS history and stops recording new events. Protection and aggregate counters continue. It can be re-enabled at any time.</string>
     <string name="settings_sources">Blocklist sources</string>
     <string name="settings_dns_transport_title">DNS transport</string>
     <string name="settings_doh_enable">Encrypt outgoing DNS using Cloudflare DoH</string>
