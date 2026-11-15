@@ -62,6 +62,9 @@
     <string name="language_system">لغة النظام</string>
     <string name="language_arabic">العربية</string>
     <string name="language_english">الإنجليزية</string>
+    <string name="settings_privacy_title">خصوصية نشاط DNS</string>
+    <string name="settings_privacy_history">تسجيل أحدث نشاط DNS في الذاكرة</string>
+    <string name="settings_privacy_history_hint">إيقافه يمسح سجل DNS الحالي ويوقف تسجيل الأحداث الجديدة. تستمر الحماية والعدادات الإجمالية. يمكن إعادة تفعيله في أي وقت.</string>
     <string name="settings_sources">مصادر الحظر</string>
     <string name="settings_dns_transport_title">اتصال DNS</string>
     <string name="settings_doh_enable">تشفير طلبات DNS الصادرة باستخدام Cloudflare DoH</string>
