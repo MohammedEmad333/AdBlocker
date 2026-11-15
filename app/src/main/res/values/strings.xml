@@ -96,7 +96,7 @@
     <string name="settings_custom_source_toggle">Enable this HTTPS source</string>
     <string name="settings_custom_source_remove_item">Remove this source</string>
     <string name="settings_custom_source_hint">https://lists.example.org/hosts.txt</string>
-    <string name="settings_custom_source_save">Save HTTPS list URL</string>
+    <string name="settings_custom_source_save">Add HTTPS list URL</string>
     <string name="settings_custom_source_remove">Remove custom source</string>
     <string name="settings_custom_source_invalid">Enter a valid public HTTPS URL without credentials, query parameters or redirects</string>
     <string name="settings_custom_source_saved">Custom source saved; refresh to download</string>
