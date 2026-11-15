@@ -126,6 +126,8 @@
     <string name="settings_no_domains">No custom domains</string>
     <string name="settings_remove_domain">Remove %1$s</string>
     <string name="settings_apps">Apps excluded from DNS filtering</string>
+    <string name="settings_apps_search">Search apps by name or package</string>
+    <string name="settings_apps_no_matches">No matching installed apps</string>
     <string name="settings_apps_explain">Excluded apps bypass this VPN. Restart protection after changes.</string>
     <string name="settings_no_apps">No launchable apps found</string>
     <string name="settings_restart_needed">Restart VPN to apply app exclusions</string>

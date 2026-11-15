@@ -16,6 +16,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -489,8 +491,22 @@ public final class SettingsActivity extends AppCompatActivity {
             CharSequence name = info.loadLabel(pm);
             installed.put(pkg, name == null ? pkg : name.toString());
         }
+        if (installed.isEmpty()) {
+            label(getString(R.string.settings_no_apps), 12, R.color.muted);
+            return;
+        }
+
+        EditText searchApps = new EditText(this);
+        searchApps.setHint(R.string.settings_apps_search);
+        searchApps.setTextColor(getColor(R.color.text));
+        searchApps.setHintTextColor(getColor(R.color.muted));
+        searchApps.setSingleLine(true);
+        root.addView(searchApps);
+        TextView empty = small(getString(R.string.settings_apps_no_matches));
+        root.addView(empty);
+
         Set<String> excluded = settings.excludedPackages();
-        if (installed.isEmpty()) label(getString(R.string.settings_no_apps), 12, R.color.muted);
+        Map<CheckBox, String[]> apps = new java.util.LinkedHashMap<>();
         for (Map.Entry<String, String> entry : installed.entrySet()) {
             String pkg = entry.getKey();
             CheckBox checkbox = new CheckBox(this);
@@ -502,8 +518,28 @@ public final class SettingsActivity extends AppCompatActivity {
                 settings.setExcluded(pkg, selected);
                 toast(getString(R.string.settings_restart_needed));
             });
+            apps.put(checkbox, new String[]{entry.getValue(), pkg});
             root.addView(checkbox);
         }
+        Runnable applyFilter = () -> {
+            int matched = 0;
+            String needle = searchApps.getText().toString();
+            for (Map.Entry<CheckBox, String[]> entry : apps.entrySet()) {
+                String[] app = entry.getValue();
+                boolean visible = AppExclusionSearch.matches(app[0], app[1], needle);
+                entry.getKey().setVisibility(visible ? View.VISIBLE : View.GONE);
+                if (visible) matched++;
+            }
+            empty.setVisibility(matched == 0 ? View.VISIBLE : View.GONE);
+        };
+        searchApps.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                applyFilter.run();
+            }
+            @Override public void afterTextChanged(Editable e) {}
+        });
+        applyFilter.run();
     }
 
     private void sendRefresh(boolean force) {
