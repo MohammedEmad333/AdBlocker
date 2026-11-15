@@ -96,7 +96,7 @@
     <string name="settings_custom_source_toggle">تفعيل مصدر HTTPS هذا</string>
     <string name="settings_custom_source_remove_item">حذف هذا المصدر</string>
     <string name="settings_custom_source_hint">https://lists.example.org/hosts.txt</string>
-    <string name="settings_custom_source_save">حفظ رابط القائمة</string>
+    <string name="settings_custom_source_save">إضافة رابط قائمة HTTPS</string>
     <string name="settings_custom_source_remove">إزالة المصدر المخصص</string>
     <string name="settings_custom_source_invalid">أدخل رابط HTTPS عامًا صالحًا دون بيانات دخول أو معاملات أو إعادة توجيه</string>
     <string name="settings_custom_source_saved">تم حفظ المصدر. حدّث القوائم لتنزيله</string>
