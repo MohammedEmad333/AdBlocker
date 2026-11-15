@@ -193,6 +193,8 @@ public class AdBlockVpnService extends VpnService {
         dohHealthy = false;
         recoveryCooldown.reset();
         resetStats();
+        // Retain user privacy preference across VPN restarts.
+        HISTORY.setRecordingEnabled(transportSettings.dnsHistoryEnabled());
         tcpTunnel.clear();
         dnsCache.clear();
         vpnThread = new Thread(this::runVpn, "AdBlockVpnThread");
