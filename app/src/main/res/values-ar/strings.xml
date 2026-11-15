@@ -101,7 +101,7 @@
     <string name="settings_custom_source_invalid">أدخل رابط HTTPS عامًا صالحًا دون بيانات دخول أو معاملات أو إعادة توجيه</string>
     <string name="settings_custom_source_saved">تم حفظ المصدر. حدّث القوائم لتنزيله</string>
     <string name="settings_custom_source_removed">تم حذف المصدر المخصص</string>
-    <string name="settings_custom_source_caution">أضف مصادر موثوقة فقط، فقد تحظر القوائم بعض المواقع السليمة. يُسمح برابط واحد فقط.</string>
+    <string name="settings_custom_source_caution">أضف مصادر موثوقة فقط، فقد تحظر بعض المواقع السليمة. يمكن إدارة ثلاثة مصادر HTTPS بشكل مستقل.</string>
     <string name="settings_allowed_domains">النطاقات المسموحة (تتجاوز قوائم الحظر)</string>
     <string name="settings_blocked_domains">النطاقات المحظورة (تشمل النطاقات الفرعية)</string>
     <string name="settings_add_domain">إضافة نطاق</string>
