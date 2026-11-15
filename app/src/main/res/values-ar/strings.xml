@@ -107,6 +107,9 @@
     <string name="settings_rules_export_failed">تعذر تصدير قواعد النطاقات</string>
     <string name="settings_rules_cancel">إلغاء</string>
     <string name="settings_rules_replace">استبدال القواعد</string>
+    <string name="settings_rules_merge">دمج القواعد</string>
+    <string name="settings_rules_merge_preview">الدمج: %1$d قواعد سماح جديدة، %2$d قواعد حظر جديدة، %3$d تعارضات. تُحفظ القواعد الحالية عند التعارض.</string>
+    <string name="settings_rules_merge_limit">يتجاوز الدمج حد 2000 قاعدة؛ لم يتم تغيير أي قاعدة</string>
     <string name="settings_rules_explain">يشمل الملف قواعد النطاقات المخصصة فقط ولا يشمل سجل DNS. تُفحص كل القواعد قبل استبدالها.</string>
     <string name="settings_domain_error">أدخل نطاقًا فقط مثل example.com</string>
     <string name="settings_no_domains">لا توجد نطاقات مخصصة</string>
