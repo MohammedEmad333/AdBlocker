@@ -63,19 +63,51 @@ public final class SettingsActivity extends AppCompatActivity {
                                     .setMessage(getString(R.string.settings_rules_import_confirm,
                                             parsed.allowed.size(), parsed.blocked.size()))
                                     .setNegativeButton(R.string.settings_rules_cancel, null)
+                                    .setNeutralButton(R.string.settings_rules_merge,
+                                            (dialog, which) -> previewRuleMerge(parsed))
                                     .setPositiveButton(R.string.settings_rules_replace,
-                                            (dialog, which) -> {
-                                                settings.replaceDomains(parsed);
-                                                toast(getString(R.string.settings_rules_imported));
-                                                sendRefresh(false);
-                                                recreate();
-                                            })
+                                            (dialog, which) -> applyImportedRules(parsed))
                                     .show();
                         } catch (IOException | SecurityException e) {
                             android.util.Log.w("AdBlockBackup", "Import rejected", e);
                             toast(getString(R.string.settings_rules_invalid));
                         }
                     });
+    private void previewRuleMerge(RuleBackupCodec.Rules parsed) {
+        final RuleMergePlanner.Plan preview;
+        try {
+            preview = RuleMergePlanner.merge(
+                    settings.allowedDomains(), settings.blockedDomains(), parsed);
+        } catch (IllegalArgumentException invalid) {
+            toast(getString(R.string.settings_rules_merge_limit));
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setMessage(getString(R.string.settings_rules_merge_preview,
+                        preview.addedAllowed, preview.addedBlocked, preview.conflicts))
+                .setNegativeButton(R.string.settings_rules_cancel, null)
+                .setPositiveButton(R.string.settings_rules_merge,
+                        (dialog, which) -> {
+                            // Recompute against live settings to avoid overwriting edits
+                            // made while the confirmation dialog was open.
+                            try {
+                                RuleMergePlanner.Plan current = RuleMergePlanner.merge(
+                                        settings.allowedDomains(), settings.blockedDomains(), parsed);
+                                applyImportedRules(current.result);
+                            } catch (IllegalArgumentException invalid) {
+                                toast(getString(R.string.settings_rules_merge_limit));
+                            }
+                        })
+                .show();
+    }
+
+    private void applyImportedRules(RuleBackupCodec.Rules rules) {
+        settings.replaceDomains(rules);
+        toast(getString(R.string.settings_rules_imported));
+        sendRefresh(false);
+        recreate();
+    }
+
     private LinearLayout root;
     private TextView updateStatus;
     private CheckBox stevenBlackCheck, adAwayCheck;
