@@ -21,3 +21,22 @@ Device checks: downloading over cellular/Wi-Fi, offline cache, malformed and
 oversized lists, HTTP redirects, invalid certificate, DNS changes, source
 removal and in-session policy refresh. Real-device validation is required
 before a public release.
+
+## AdBlocker 1.7: manage up to three sources
+
+The HTTPS list manager accepts up to three custom URLs, each with its own
+enable/disable control and private SHA-256-based cache filename. Only enabled
+sources contribute to live blocking. The app displays the last cached download
+time and cached domain count, which may be stale until the next refresh.
+
+Existing users' single saved HTTPS URL is transparently migrated on the first
+catalog edit. Removing one source also attempts to delete its local cache.
+Disabled sources keep their cache for offline reactivation. Source links are
+validated with the existing strict HTTPS URL rules and downloads retain their
+size, TLS and redirect limits.
+
+Do not mistake the host's preflight DNS check for comprehensive DNS-rebinding
+protection. A peer-IP pinning or equivalent verified connection strategy
+remains necessary before public release. All three sources should be tested
+with offline/invalid certificate conditions and partial refresh failures on
+real devices.

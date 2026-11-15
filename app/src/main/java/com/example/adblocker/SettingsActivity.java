@@ -266,31 +266,28 @@ public final class SettingsActivity extends AppCompatActivity {
         section(getString(R.string.settings_custom_source_title));
         label(getString(R.string.settings_custom_source_caution), 12, R.color.muted);
         EditText customSource = new EditText(this);
-        customSource.setText(settings.customBlocklistUrl());
         customSource.setHint(R.string.settings_custom_source_hint);
         customSource.setTextColor(getColor(R.color.text));
         customSource.setHintTextColor(getColor(R.color.muted));
         customSource.setSingleLine(true);
         customSource.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         root.addView(customSource);
-        Button saveSource = button(getString(R.string.settings_custom_source_save));
-        saveSource.setOnClickListener(v -> {
-            if (!settings.setCustomBlocklistUrl(customSource.getText().toString())) {
-                customSource.setError(getString(R.string.settings_custom_source_invalid));
+        LinearLayout customSources = new LinearLayout(this);
+        customSources.setOrientation(LinearLayout.VERTICAL);
+        root.addView(customSources);
+        Button addSource = button(getString(R.string.settings_custom_source_save));
+        addSource.setOnClickListener(v -> {
+            if (!settings.addCustomSource(customSource.getText().toString())) {
+                customSource.setError(getString(R.string.settings_custom_source_limit));
                 return;
             }
-            sendRefresh(false);
-            toast(getString(R.string.settings_custom_source_saved));
-        });
-        root.addView(saveSource);
-        Button removeSource = button(getString(R.string.settings_custom_source_remove));
-        removeSource.setOnClickListener(v -> {
-            settings.setCustomBlocklistUrl("");
             customSource.setText("");
+            renderCustomSources(customSources);
             sendRefresh(false);
-            toast(getString(R.string.settings_custom_source_removed));
+            toast(getString(R.string.settings_custom_source_added));
         });
-        root.addView(removeSource);
+        root.addView(addSource);
+        renderCustomSources(customSources);
 
         section(getString(R.string.settings_backup_title));
         label(getString(R.string.settings_rules_explain), 12, R.color.muted);
@@ -318,6 +315,51 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override protected void onPause() {
         refreshHandler.removeCallbacks(refreshTicker);
         super.onPause();
+    }
+
+    private void renderCustomSources(LinearLayout area) {
+        area.removeAllViews();
+        for (Map.Entry<String, Boolean> entry : settings.customBlocklistSources().entrySet()) {
+            String url = entry.getKey();
+            CheckBox enabled = new CheckBox(this);
+            enabled.setText(getString(R.string.settings_custom_source_toggle) + ": " + url);
+            enabled.setTextColor(getColor(R.color.text));
+            enabled.setChecked(Boolean.TRUE.equals(entry.getValue()));
+            enabled.setOnCheckedChangeListener((button, checked) -> {
+                if (settings.setCustomSourceEnabled(url, checked)) {
+                    sendRefresh(false);
+                }
+            });
+            area.addView(enabled);
+
+            java.io.File cache = new java.io.File(getFilesDir(),
+                    CustomBlocklistUrl.cacheName(url));
+            String last = cache.exists() ? DateFormat.getDateTimeInstance(
+                    DateFormat.MEDIUM, DateFormat.SHORT)
+                    .format(new java.util.Date(cache.lastModified()))
+                    : getString(R.string.settings_custom_source_never);
+            labelIn(area, getString(R.string.settings_custom_source_last, last), 12);
+            labelIn(area, getString(R.string.settings_custom_source_count,
+                    settings.customSourceDomainCount(url)), 12);
+
+            Button remove = button(getString(R.string.settings_custom_source_remove_item));
+            remove.setOnClickListener(v -> {
+                settings.removeCustomSource(url);
+                // This cache is private and uniquely named by the source hash.
+                deleteFile(CustomBlocklistUrl.cacheName(url));
+                renderCustomSources(area);
+                sendRefresh(false);
+            });
+            area.addView(remove);
+        }
+    }
+
+    private void labelIn(LinearLayout area, String value, int size) {
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextColor(getColor(R.color.muted));
+        text.setTextSize(size);
+        area.addView(text);
     }
 
     private void refreshTime() {

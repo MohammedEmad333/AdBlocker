@@ -5,6 +5,8 @@ import android.content.SharedPreferences;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 
 /** Settings stored only on-device. Always copy SharedPreferences string sets. */
@@ -19,6 +21,7 @@ public final class FilterSettings {
     private static final String LAST_REFRESH = "last_successful_download";
     private static final String LAST_MANUAL_REFRESH = "last_manual_refresh_state";
     private static final String CUSTOM_BLOCKLIST = "custom_https_blocklist";
+    private static final String CUSTOM_BLOCKLISTS = "custom_https_blocklists";
     private static final String USE_DOH = "use_doh_transport";
     private static final String DOH_PROVIDER = "doh_provider";
     private static final String DNS_HISTORY_ENABLED = "dns_history_enabled";
@@ -68,6 +71,51 @@ public final class FilterSettings {
         if (normalized == null) return false;
         prefs.edit().putString(CUSTOM_BLOCKLIST, normalized).apply();
         return true;
+    }
+
+    /** Decode multiple sources while transparently reading the legacy single URL. */
+    public Map<String, Boolean> customBlocklistSources() {
+        return CustomSourceCatalog.decode(
+                prefs.getStringSet(CUSTOM_BLOCKLISTS, Collections.emptySet()),
+                prefs.getString(CUSTOM_BLOCKLIST, ""));
+    }
+
+    private void saveCustomSources(Map<String, Boolean> sources) {
+        prefs.edit().putStringSet(CUSTOM_BLOCKLISTS, CustomSourceCatalog.encode(sources))
+                .remove(CUSTOM_BLOCKLIST).apply();
+    }
+
+    public boolean addCustomSource(String input) {
+        try {
+            saveCustomSources(CustomSourceCatalog.add(customBlocklistSources(), input));
+            return true;
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
+    public boolean setCustomSourceEnabled(String url, boolean enabled) {
+        try {
+            saveCustomSources(CustomSourceCatalog.withEnabled(
+                    customBlocklistSources(), url, enabled));
+            return true;
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
+    public void removeCustomSource(String url) {
+        Map<String, Boolean> updated = new LinkedHashMap<>(customBlocklistSources());
+        if (updated.remove(url) != null) saveCustomSources(updated);
+    }
+
+    public int customSourceDomainCount(String url) {
+        return prefs.getInt("custom_count_" + CustomBlocklistUrl.cacheName(url), 0);
+    }
+
+    public void setCustomSourceDomainCount(String url, int count) {
+        prefs.edit().putInt("custom_count_" + CustomBlocklistUrl.cacheName(url),
+                Math.max(0, count)).apply();
     }
 
     public Set<String> allowedDomains() {
