@@ -107,6 +107,9 @@
     <string name="settings_rules_export_failed">Unable to export domain rules</string>
     <string name="settings_rules_cancel">Cancel</string>
     <string name="settings_rules_replace">Replace rules</string>
+    <string name="settings_rules_merge">Merge rules</string>
+    <string name="settings_rules_merge_preview">Merge: %1$d new allowed, %2$d new blocked, %3$d conflicts. Existing rules win conflicts and remain unchanged.</string>
+    <string name="settings_rules_merge_limit">Merged rules exceed the 2,000-rule limit; no changes were made</string>
     <string name="settings_rules_explain">Only custom domain rules are included, not DNS history. Import validates the full file before replacement.</string>
     <string name="settings_domain_error">Enter a domain only, such as example.com</string>
     <string name="settings_no_domains">No custom domains</string>
