@@ -14,10 +14,11 @@ final class DnsResponseCache {
     static final long MAX_TTL_SEC = 60L;
     private static final class Entry {
         final byte[] response;
-        final long expiresAt;
+        final long cachedAt, expiresAt;
         final int ttlOffset;
-        Entry(byte[] response, long expiresAt, int ttlOffset) {
+        Entry(byte[] response, long cachedAt, long expiresAt, int ttlOffset) {
             this.response = response;
+            this.cachedAt = cachedAt;
             this.expiresAt = expiresAt;
             this.ttlOffset = ttlOffset;
         }
@@ -45,28 +46,38 @@ final class DnsResponseCache {
         if (key == null) return null;
         Entry entry = entries.get(key);
         if (entry == null) return null;
-        long remaining = entry.expiresAt - now;
-        if (remaining < 1000) {
+        // Elapsed time is monotonic within a process. If it regresses, drop
+        // the entry instead of extending DNS TTL beyond its original bound.
+        if (now < entry.cachedAt || now >= entry.expiresAt
+                || entry.expiresAt - now < 1000) {
             entries.remove(key);
             return null;
         }
         byte[] result = entry.response.clone();
         result[0] = query[0];
         result[1] = query[1];
-        write32(result, entry.ttlOffset, remaining / 1000);
+        write32(result, entry.ttlOffset, (entry.expiresAt - now) / 1000);
         return result;
     }
 
     synchronized void put(byte[] query, byte[] reply, long now) {
         String key = key(query);
-        if (key == null || reply == null || !DnsTcpWire.matchesQuery(query, reply)
+        if (key == null || reply == null || now < 0
+                || !DnsTcpWire.matchesQuery(query, reply)
                 || (reply[2] & 2) != 0 || (reply[3] & 15) != 0
                 || (reply[6] & 255) != 0 || (reply[7] & 255) != 1
                 || reply[8] != 0 || reply[9] != 0
                 || reply[10] != 0 || reply[11] != 0) return;
 
         int end = DnsPacket.questionEnd(reply, 0, reply.length);
-        if (end != query.length || !Arrays.equals(
+        if (end != query.length) return;
+        int questionType = ((query[end - 4] & 255) << 8) | (query[end - 3] & 255);
+        int questionClass = ((query[end - 2] & 255) << 8) | (query[end - 1] & 255);
+        // Only cache a single IN/A or IN/AAAA answer of the requested family.
+        // A validly framed but mismatched address RR is not reusable as the
+        // original query's answer (e.g. AAAA response for an A request).
+        if (questionClass != 1 || (questionType != 1 && questionType != 28)
+                || !Arrays.equals(
                 Arrays.copyOfRange(query, 12, end),
                 Arrays.copyOfRange(reply, 12, end))) return;
 
@@ -76,13 +87,15 @@ final class DnsResponseCache {
         int type = ((reply[end + 2] & 255) << 8) | (reply[end + 3] & 255);
         int clazz = ((reply[end + 4] & 255) << 8) | (reply[end + 5] & 255);
         int length = ((reply[end + 10] & 255) << 8) | (reply[end + 11] & 255);
-        if (clazz != 1 || !((type == 1 && length == 4)
-                || (type == 28 && length == 16))
+        if (clazz != 1 || type != questionType
+                || !((type == 1 && length == 4) || (type == 28 && length == 16))
                 || reply.length != end + 12 + length) return;
         long ttl = read32(reply, end + 6);
         if (ttl <= 0) return;
         ttl = Math.min(ttl, MAX_TTL_SEC);
-        entries.put(key, new Entry(reply.clone(), now + ttl * 1000, end + 6));
+        long lifetimeMs = ttl * 1000;
+        if (now > Long.MAX_VALUE - lifetimeMs) return;
+        entries.put(key, new Entry(reply.clone(), now, now + lifetimeMs, end + 6));
     }
 
     synchronized void clear() { entries.clear(); }
