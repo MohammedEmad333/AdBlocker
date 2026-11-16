@@ -170,4 +170,9 @@
     <string name="pause_30_minutes">30 دقيقة</string>
     <string name="pause_countdown">يستأنف الحجب تلقائيًا خلال نحو %1$d دقيقة</string>
     <string name="pause_warning_inline">الحجب معطّل مؤقتًا وسيعود تلقائيًا.</string>
+    <string name="dashboard_lists_never_updated">لم يتم تنزيل قوائم الحجب بعد</string>
+    <string name="dashboard_lists_update_due">يُنصح بتحديث قوائم الحجب</string>
+    <string name="dashboard_lists_recent">تم تنزيل قوائم الحجب حديثًا</string>
+    <string name="dashboard_history_disabled">سجل DNS معطّل للخصوصية. يستمر الحجب والعدادات الإجمالية.</string>
+    <string name="dashboard_history_enabled">يُحفظ سجل نشاط DNS في الذاكرة المؤقتة فقط</string>
 </resources>
