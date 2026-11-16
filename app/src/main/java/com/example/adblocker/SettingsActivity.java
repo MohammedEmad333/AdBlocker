@@ -75,6 +75,63 @@ public final class SettingsActivity extends AppCompatActivity {
                             toast(getString(R.string.settings_rules_invalid));
                         }
                     });
+    private final ActivityResultLauncher<String> exportProfile =
+            registerForActivityResult(new ActivityResultContracts.CreateDocument("text/plain"),
+                    uri -> {
+                        if (uri == null) return;
+                        try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+                            if (out == null) throw new IOException("Unable to write backup");
+                            out.write(ProfileBackupCodec.exportProfile(settings.profileSnapshot()));
+                            toast(getString(R.string.settings_profile_exported));
+                        } catch (IOException | SecurityException e) {
+                            android.util.Log.w("AdBlockBackup", "Profile export failed", e);
+                            toast(getString(R.string.settings_profile_export_failed));
+                        }
+                    });
+
+    private final ActivityResultLauncher<String[]> importProfile =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(),
+                    uri -> {
+                        if (uri == null) return;
+                        try (InputStream in = getContentResolver().openInputStream(uri)) {
+                            ProfileBackupCodec.Profile parsed = ProfileBackupCodec.importProfile(in);
+                            new AlertDialog.Builder(this)
+                                    .setTitle(R.string.settings_profile_import_title)
+                                    .setMessage(getString(R.string.settings_profile_import_confirm,
+                                            parsed.allowed.size() + parsed.blocked.size(),
+                                            parsed.excludedPackages.size(),
+                                            parsed.customSources.size()))
+                                    .setNegativeButton(R.string.settings_rules_cancel, null)
+                                    .setPositiveButton(R.string.settings_profile_restore,
+                                            (dialog, which) -> restoreProfile(parsed))
+                                    .show();
+                        } catch (IOException | SecurityException e) {
+                            android.util.Log.w("AdBlockBackup", "Profile import rejected", e);
+                            toast(getString(R.string.settings_profile_invalid));
+                        }
+                    });
+
+    private void restoreProfile(ProfileBackupCodec.Profile profile) {
+        try {
+            settings.replaceProfile(profile);
+            // Preserve the user's imported privacy preference immediately.
+            AdBlockVpnService.HISTORY.setRecordingEnabled(profile.dnsHistoryEnabled);
+            boolean scheduled = BlocklistAutoRefresh.sync(this, true);
+            if (!scheduled && profile.autoRefreshEnabled) {
+                // Do not claim opt-in background updates are active when scheduling failed.
+                settings.setAutoRefreshEnabled(false);
+                BlocklistAutoRefresh.sync(this, true);
+                toast(getString(R.string.settings_auto_refresh_schedule_failed));
+            }
+            sendRefresh(false); // sources/rules reload; DNS/DoH/exclusions need a VPN restart
+            toast(getString(R.string.settings_profile_restored_restart));
+            recreate();
+        } catch (IOException | IllegalArgumentException error) {
+            android.util.Log.w("AdBlockBackup", "Profile save rejected", error);
+            toast(getString(R.string.settings_profile_invalid));
+        }
+    }
+
     private void previewRuleMerge(RuleBackupCodec.Rules parsed) {
         final RuleMergePlanner.Plan preview;
         try {
@@ -301,6 +358,17 @@ public final class SettingsActivity extends AppCompatActivity {
         importButton.setOnClickListener(v -> importRules.launch(
                 new String[]{"text/plain", "application/octet-stream"}));
         root.addView(importButton);
+
+        section(getString(R.string.settings_profile_title));
+        label(getString(R.string.settings_profile_hint), 12, R.color.muted);
+        Button fullExport = button(getString(R.string.settings_profile_export));
+        fullExport.setOnClickListener(v ->
+                exportProfile.launch("adblocker-settings-profile.txt"));
+        root.addView(fullExport);
+        Button fullImport = button(getString(R.string.settings_profile_import));
+        fullImport.setOnClickListener(v -> importProfile.launch(
+                new String[]{"text/plain", "application/octet-stream"}));
+        root.addView(fullImport);
 
         domainEditor(getString(R.string.settings_allowed_domains), true);
         domainEditor(getString(R.string.settings_blocked_domains), false);

@@ -175,4 +175,15 @@
     <string name="dashboard_lists_recent">تم تنزيل قوائم الحجب حديثًا</string>
     <string name="dashboard_history_disabled">سجل DNS معطّل للخصوصية. يستمر الحجب والعدادات الإجمالية.</string>
     <string name="dashboard_history_enabled">يُحفظ سجل نشاط DNS في الذاكرة المؤقتة فقط</string>
+    <string name="settings_profile_title">نسخة احتياطية كاملة للإعدادات</string>
+    <string name="settings_profile_hint">تشمل قواعد النطاقات واستثناءات التطبيقات والقوائم وروابط HTTPS وإعدادات DNS والتحديث التلقائي. لا تشمل سجل نشاط DNS أو القوائم المنزلة أو كلمات المرور. الملف النصي غير مشفر وقد يكشف نطاقاتك وتطبيقاتك المختارة، فاحفظه بشكل خاص.</string>
+    <string name="settings_profile_export">تصدير جميع الإعدادات</string>
+    <string name="settings_profile_import">استيراد جميع الإعدادات</string>
+    <string name="settings_profile_import_title">استبدال الإعدادات الحالية؟</string>
+    <string name="settings_profile_import_confirm">الملف يحتوي على %1$d قاعدة نطاق، و%2$d تطبيق مستثنى، و%3$d مصادر HTTPS مخصصة. سيستبدل الاستيراد كل الإعدادات الحالية. يتطلب تغيير DNS واستثناءات التطبيقات إعادة تشغيل VPN. لا يتم استيراد القوائم المنزلة أو سجل DNS.</string>
+    <string name="settings_profile_restore">استبدال الإعدادات</string>
+    <string name="settings_profile_exported">تم تصدير النسخة الكاملة للإعدادات</string>
+    <string name="settings_profile_export_failed">تعذر تصدير نسخة الإعدادات</string>
+    <string name="settings_profile_invalid">نسخة الإعدادات غير صالحة أو غير مدعومة، ولم تتغير الإعدادات</string>
+    <string name="settings_profile_restored_restart">تم استعادة الإعدادات. أعد تشغيل VPN لتطبيق استثناءات التطبيقات وإعدادات DNS.</string>
 </resources>

@@ -3,6 +3,8 @@ package com.example.adblocker;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.io.IOException;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -121,6 +123,42 @@ public final class FilterSettings {
     public void setCustomSourceDomainCount(String url, int count) {
         prefs.edit().putInt("custom_count_" + CustomBlocklistUrl.cacheName(url),
                 Math.max(0, count)).apply();
+    }
+
+    /** Export a validated immutable snapshot without DNS activity or cache files. */
+    public ProfileBackupCodec.Profile profileSnapshot() throws IOException {
+        return ProfileBackupCodec.create(allowedDomains(), blockedDomains(),
+                excludedPackages(), customBlocklistSources(),
+                sourceEnabled(STEVENBLACK), sourceEnabled(ADAWAY),
+                dohEnabled(), dohProvider(), dnsHistoryEnabled(),
+                autoRefreshEnabled(), autoRefreshFrequency(), autoRefreshUnmeteredOnly());
+    }
+
+    /** Apply all profile settings in one disk transaction after full validation. */
+    public void replaceProfile(ProfileBackupCodec.Profile source) throws IOException {
+        if (source == null) throw new IOException("Missing profile");
+        ProfileBackupCodec.Profile checked = ProfileBackupCodec.importProfile(
+                new java.io.ByteArrayInputStream(ProfileBackupCodec.exportProfile(source)));
+        SharedPreferences.Editor editor = prefs.edit()
+                .putStringSet(ALLOW, new HashSet<>(checked.allowed))
+                .putStringSet(BLOCK, new HashSet<>(checked.blocked))
+                .putStringSet(EXCLUDED, new HashSet<>(checked.excludedPackages))
+                .putStringSet(CUSTOM_BLOCKLISTS,
+                        CustomSourceCatalog.encode(checked.customSources))
+                .remove(CUSTOM_BLOCKLIST)
+                .putBoolean(STEVENBLACK, checked.stevenBlack)
+                .putBoolean(ADAWAY, checked.adAway)
+                .putBoolean(USE_DOH, checked.dohEnabled)
+                .putString(DOH_PROVIDER, checked.dohProvider)
+                .putBoolean(DNS_HISTORY_ENABLED, checked.dnsHistoryEnabled)
+                .putBoolean(AUTO_REFRESH_ENABLED, checked.autoRefreshEnabled)
+                .putString(AUTO_REFRESH_FREQUENCY, checked.autoRefreshFrequency)
+                .putBoolean(AUTO_REFRESH_UNMETERED, checked.autoRefreshUnmeteredOnly)
+                .remove(LAST_REFRESH)
+                .remove(AUTO_REFRESH_LAST_RUN)
+                .remove(AUTO_REFRESH_LAST_RESULT)
+                .putString(LAST_MANUAL_REFRESH, ManualRefreshState.NEVER.name());
+        if (!editor.commit()) throw new IOException("Unable to save imported profile");
     }
 
     public Set<String> allowedDomains() {
