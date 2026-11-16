@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /**
  * Downloads, caches and parses the blocklist.
@@ -60,43 +61,57 @@ public class BlocklistManager {
 
     /** Refresh only expired sources unless forced. An offline cache is retained. */
     public Set<String> load(boolean force) {
-        return loadInternal(force, false, null);
+        return loadInternal(force, false, null, null);
     }
 
     /** Force an update and report source results, including cached fallbacks. */
     public BlocklistRefreshStatus refreshWithStatus() {
+        return refreshWithStatus(null);
+    }
+
+    /** Cancel-safe variant used only by Android's background scheduler. */
+    public BlocklistRefreshStatus refreshWithStatus(BooleanSupplier stillAllowed) {
         BlocklistRefreshStatus status = new BlocklistRefreshStatus();
-        loadInternal(true, false, status);
+        loadInternal(true, false, status, stillAllowed);
         return status;
     }
 
     /** Startup-safe loading: use local cache only, never attempt HTTP. */
     public Set<String> loadCached() {
-        return loadInternal(false, true, null);
+        return loadInternal(false, true, null, null);
     }
 
     private Set<String> loadInternal(boolean force, boolean cacheOnly,
-                                     BlocklistRefreshStatus status) {
+                                     BlocklistRefreshStatus status,
+                                     BooleanSupplier stillAllowed) {
         FilterSettings settings = new FilterSettings(context);
         Set<String> combined = new HashSet<>(200_000);
         boolean anyEnabled = false;
+        if (stillAllowed != null && !BlocklistRefreshGuard.isActive(stillAllowed))
+            return combined;
 
         if (settings.sourceEnabled(FilterSettings.STEVENBLACK)) {
             anyEnabled = true;
-            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, cacheOnly, false, settings, status));
+            combined.addAll(loadSource(STEVENBLACK_URL, STEVENBLACK_CACHE, force, cacheOnly,
+                    false, settings, status, stillAllowed));
         }
+        if (stillAllowed != null && !BlocklistRefreshGuard.isActive(stillAllowed))
+            return combined;
         if (settings.sourceEnabled(FilterSettings.ADAWAY)) {
             anyEnabled = true;
-            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly, false, settings, status));
+            combined.addAll(loadSource(ADAWAY_URL, ADAWAY_CACHE, force, cacheOnly,
+                    false, settings, status, stillAllowed));
         }
 
         for (java.util.Map.Entry<String, Boolean> subscription
                 : settings.customBlocklistSources().entrySet()) {
+            if (stillAllowed != null && !BlocklistRefreshGuard.isActive(stillAllowed))
+                return combined;
             if (!Boolean.TRUE.equals(subscription.getValue())) continue;
             String custom = subscription.getKey();
             anyEnabled = true;
             combined.addAll(loadSource(custom, CustomBlocklistUrl.cacheName(custom),
-                    force, cacheOnly, true, settings, status));
+                    force, cacheOnly, true, settings, status, stillAllowed));
         }
 
         // An explicit choice to disable all remote sources must not be overridden.
@@ -110,7 +125,10 @@ public class BlocklistManager {
 
     private Set<String> loadSource(String sourceUrl, String fileName, boolean force,
                                    boolean cacheOnly, boolean custom, FilterSettings settings,
-                                   BlocklistRefreshStatus status) {
+                                   BlocklistRefreshStatus status,
+                                   BooleanSupplier stillAllowed) {
+        if (stillAllowed != null && !BlocklistRefreshGuard.isActive(stillAllowed))
+            return new HashSet<>();
         File cache = new File(context.getFilesDir(), fileName);
         boolean fresh = cache.exists()
                 && BlocklistSourcePolicy.cacheFresh(cache.length(),
@@ -118,7 +136,7 @@ public class BlocklistManager {
         if (!cacheOnly && (force || !fresh)) {
             try {
                 download(sourceUrl, cache, BlocklistSourcePolicy.minimumDomains(custom),
-                        BlocklistSourcePolicy.minimumBytes(custom));
+                        BlocklistSourcePolicy.minimumBytes(custom), stillAllowed);
                 settings.markDownloaded();
                 if (status != null) status.recordSuccess();
             } catch (IOException e) {
@@ -127,6 +145,9 @@ public class BlocklistManager {
             }
         }
 
+        // A cancelled job must not waste CPU parsing cached lists.
+        if (stillAllowed != null && !BlocklistRefreshGuard.isActive(stillAllowed))
+            return new HashSet<>();
         if (cache.exists() && BlocklistSourcePolicy.cacheUsable(cache.length(), custom)) {
             try (InputStream in = new FileInputStream(cache)) {
                 Set<String> parsed = parse(in);
@@ -143,7 +164,8 @@ public class BlocklistManager {
     }
 
     private void download(String sourceUrl, File cache, int minDomains,
-                          long minBytes) throws IOException {
+                          long minBytes, BooleanSupplier stillAllowed) throws IOException {
+        BlocklistRefreshGuard.requireActive(stillAllowed);
         // Log only the local cache key, never an optional third-party URL.
         Log.i(TAG, "Updating source cache " + cache.getName());
         // A unique staging file prevents parallel manual/background refreshes
@@ -151,15 +173,16 @@ public class BlocklistManager {
         File tmp = BlocklistCacheFiles.newStagingFile(cache);
         try {
             // The HTTPS transport validates DNS addresses at connect time.
-            SecureBlocklistTransport.download(sourceUrl, tmp, MAX_BLOCKLIST_BYTES);
+            SecureBlocklistTransport.download(
+                    sourceUrl, tmp, MAX_BLOCKLIST_BYTES, stillAllowed);
             if (tmp.length() < minBytes) throw new IOException("Blocklist download too small");
             try (InputStream check = new FileInputStream(tmp)) {
-                if (parse(check).size() < minDomains) {
+                if (parse(check, stillAllowed).size() < minDomains) {
                     throw new IOException("Blocklist download did not contain enough domains");
                 }
             }
             // The old cache is untouched until all checks pass.
-            BlocklistCacheFiles.commit(tmp, cache);
+            BlocklistCacheFiles.commit(tmp, cache, stillAllowed);
             Log.i(TAG, "Blocklist saved (" + cache.length() / 1024 + " KB)");
         } finally {
             if (tmp.exists() && !tmp.delete())
@@ -173,12 +196,20 @@ public class BlocklistManager {
      *   plain:  "ads.example.com"           (OISD style, one domain per line)
      */
     private Set<String> parse(InputStream in) throws IOException {
+        return parse(in, null);
+    }
+
+    private Set<String> parse(InputStream in, BooleanSupplier stillAllowed)
+            throws IOException {
         Set<String> domains = new HashSet<>(200_000); // avoid rehashing mid-load
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(in, StandardCharsets.UTF_8), 1 << 16);
 
         String line;
+        int linesRead = 0;
         while ((line = reader.readLine()) != null) {
+            if ((++linesRead & 1023) == 0)
+                BlocklistRefreshGuard.requireActive(stillAllowed);
             int hash = line.indexOf('#');
             if (hash != -1) {
                 line = line.substring(0, hash); // strip comments, inline ones too

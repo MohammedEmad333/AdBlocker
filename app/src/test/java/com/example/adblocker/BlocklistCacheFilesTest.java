@@ -43,6 +43,26 @@ public class BlocklistCacheFilesTest {
         }
     }
 
+    @Test public void cancelledRefreshRetainsPreviousGoodCache() throws Exception {
+        File cache = temp.newFile("blocklist.txt");
+        write(cache, "last-good-version");
+        File staged = BlocklistCacheFiles.newStagingFile(cache);
+        try {
+            write(staged, "new-but-cancelled");
+            try {
+                BlocklistCacheFiles.commit(staged, cache, () -> false);
+                fail("A cancelled job cannot promote its staged download");
+            } catch (java.io.InterruptedIOException expected) {
+                assertEquals("last-good-version", read(cache));
+                assertEquals("new-but-cancelled", read(staged));
+            }
+            BlocklistCacheFiles.commit(staged, cache, () -> true);
+            assertEquals("new-but-cancelled", read(cache));
+        } finally {
+            staged.delete();
+        }
+    }
+
     @Test public void emptyDownloadMustNotReplaceExistingCache() throws Exception {
         File cache = temp.newFile("blocklist.txt");
         write(cache, "known-good");

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.function.BooleanSupplier;
 
 /** Same-directory, unique staging and safe replacement of validated cache files. */
 final class BlocklistCacheFiles {
@@ -19,6 +20,11 @@ final class BlocklistCacheFiles {
     }
 
     static void commit(File staged, File destination) throws IOException {
+        commit(staged, destination, null);
+    }
+
+    static void commit(File staged, File destination,
+                       BooleanSupplier stillAllowed) throws IOException {
         if (staged == null || destination == null || !staged.isFile()
                 || staged.length() == 0)
             throw new IOException("Missing or empty staged cache");
@@ -26,10 +32,13 @@ final class BlocklistCacheFiles {
         File cacheDir = destination.getCanonicalFile().getParentFile();
         if (stagingDir == null || !stagingDir.equals(cacheDir))
             throw new IOException("Staged file is outside the cache directory");
+        // Final boundary: cancelling a job must retain the previous good cache.
+        BlocklistRefreshGuard.requireActive(stillAllowed);
         try {
             Files.move(staged.toPath(), destination.toPath(),
                     StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (AtomicMoveNotSupportedException noAtomicMove) {
+            BlocklistRefreshGuard.requireActive(stillAllowed);
             Files.move(staged.toPath(), destination.toPath(),
                     StandardCopyOption.REPLACE_EXISTING);
         }
