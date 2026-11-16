@@ -152,4 +152,12 @@
     <string name="diagnostics_counters">الطلبات: %1$d · الاستجابات: %2$d · المهلات: %3$d · الأخطاء: %4$d</string>
     <string name="diagnostics_domains">نطاقات الحجب المحملة: %1$d</string>
     <string name="diagnostics_disclaimer">إحصائيات الجلسة فقط. لا تُجري هذه الشاشة اختبار تسرب DNS ولا تثبت حماية جميع التطبيقات. يلزم اختبار VPN وDNS المشفر على أجهزة فعلية.</string>
+    <string name="settings_auto_refresh_title">تحديث قوائم الحجب تلقائيًا</string>
+    <string name="settings_auto_refresh_enable">تفعيل التحديث أثناء توقف VPN</string>
+    <string name="settings_auto_refresh_frequency">تكرار التحديث</string>
+    <string name="settings_auto_refresh_daily">كل يوم</string>
+    <string name="settings_auto_refresh_weekly">كل أسبوع</string>
+    <string name="settings_auto_refresh_unmetered">استخدام الاتصالات غير المحدودة فقط (مثل Wi-Fi)</string>
+    <string name="settings_auto_refresh_hint">يحدد Android مواعيد التحديث تقريبياً حسب الشبكة والبطارية وظروف النظام. تُحفظ القوائم السابقة عند فشل التنزيل ولا يتم تشغيل VPN تلقائيًا.</string>
+    <string name="settings_auto_refresh_schedule_failed">تعذّرت جدولة التحديثات التلقائية</string>
 </resources>

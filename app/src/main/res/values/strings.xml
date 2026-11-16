@@ -152,4 +152,12 @@
     <string name="diagnostics_counters">Queries: %1$d · Answers: %2$d · Timeouts: %3$d · Errors: %4$d</string>
     <string name="diagnostics_domains">Loaded blocklist domains: %1$d</string>
     <string name="diagnostics_disclaimer">Session counters only. This screen does not perform a DNS leak test or prove that every app is protected. VPN routing and encrypted DNS need real-device validation.</string>
+    <string name="settings_auto_refresh_title">Scheduled blocklist updates</string>
+    <string name="settings_auto_refresh_enable">Enable updates while the VPN is off</string>
+    <string name="settings_auto_refresh_frequency">Update frequency</string>
+    <string name="settings_auto_refresh_daily">Every day</string>
+    <string name="settings_auto_refresh_weekly">Every week</string>
+    <string name="settings_auto_refresh_unmetered">Use unmetered connections only (Wi-Fi, etc.)</string>
+    <string name="settings_auto_refresh_hint">Android schedules these updates approximately, depending on network, battery, and system conditions. Updates keep old lists if downloads fail; no VPN starts automatically.</string>
+    <string name="settings_auto_refresh_schedule_failed">Could not schedule automatic updates</string>
 </resources>
