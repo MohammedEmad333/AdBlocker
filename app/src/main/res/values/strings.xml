@@ -160,4 +160,14 @@
     <string name="settings_auto_refresh_unmetered">Use unmetered connections only (Wi-Fi, etc.)</string>
     <string name="settings_auto_refresh_hint">Android schedules these updates approximately, depending on network, battery, and system conditions. Updates keep old lists if downloads fail; no VPN starts automatically.</string>
     <string name="settings_auto_refresh_schedule_failed">Could not schedule automatic updates</string>
+    <string name="protection_paused">BLOCKING PAUSED</string>
+    <string name="pause_protection">Pause blocking temporarily</string>
+    <string name="resume_protection">Resume blocking now</string>
+    <string name="pause_protection_title">Pause DNS blocking</string>
+    <string name="pause_protection_warning">DNS queries will continue through the VPN, but blocking will be disabled until the timer expires. This pause ends if the VPN restarts.</string>
+    <string name="pause_5_minutes">5 minutes</string>
+    <string name="pause_15_minutes">15 minutes</string>
+    <string name="pause_30_minutes">30 minutes</string>
+    <string name="pause_countdown">Blocking resumes automatically in about %1$d min</string>
+    <string name="pause_warning_inline">Blocking is temporarily disabled. DNS protection resumes automatically.</string>
 </resources>
