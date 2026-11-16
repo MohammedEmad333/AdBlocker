@@ -33,7 +33,7 @@ import java.util.List;
 public final class MainActivity extends AppCompatActivity {
     private TextView statusText, upstreamText, stoppedCount, seenCount, allowedCount;
     private TextView blockedRate, streamText, healthText, domainsLoaded, topBlockedText;
-    private TextView listFreshnessText, privacyStateText;
+    private TextView listFreshnessText, privacyStateText, trendsText;
     private ProgressBar blockingProgress;
     private Button toggleButton, pauseButton;
     private TextView pauseHint;
@@ -76,6 +76,7 @@ public final class MainActivity extends AppCompatActivity {
         domainsLoaded = findViewById(R.id.domainsLoaded);
         listFreshnessText = findViewById(R.id.listFreshnessText);
         privacyStateText = findViewById(R.id.privacyStateText);
+        trendsText = findViewById(R.id.trendsText);
         topBlockedText = findViewById(R.id.topBlockedText);
         blockingProgress = findViewById(R.id.blockingProgress);
         toggleButton = findViewById(R.id.toggleButton);
@@ -247,6 +248,19 @@ public final class MainActivity extends AppCompatActivity {
                 AdBlockVpnService.errors.get()));
         renderPreview();
         renderTopBlocked();
+        renderTrends();
+    }
+
+    private void renderTrends() {
+        DnsSessionTrends.Snapshot counts = AdBlockVpnService.SESSION_TRENDS.snapshot(
+                android.os.SystemClock.elapsedRealtime());
+        StringBuilder report = new StringBuilder();
+        for (int i = 0; i < DnsSessionTrends.BUCKET_COUNT; i++) {
+            if (i > 0) report.append("\n");
+            report.append(getString(R.string.dashboard_trends_row,
+                    i * 15, (i + 1) * 15, counts.blocked[i], counts.passed[i]));
+        }
+        trendsText.setText(report);
     }
 
     private void renderTopBlocked() {

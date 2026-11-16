@@ -75,6 +75,7 @@ public class AdBlockVpnService extends VpnService {
 
     /** Ephemeral and bounded DNS activity, cleared whenever a VPN session starts. */
     public static final DnsHistory HISTORY = new DnsHistory(512);
+    static final DnsSessionTrends SESSION_TRENDS = new DnsSessionTrends();
     private static final TemporaryDomainAllowlist TEMPORARY_ALLOWED =
             new TemporaryDomainAllowlist();
     private static final TimedProtectionPause PROTECTION_PAUSE =
@@ -110,6 +111,7 @@ public class AdBlockVpnService extends VpnService {
     }
 
     private static void note(String domain, boolean blocked) {
+        SESSION_TRENDS.record(blocked, android.os.SystemClock.elapsedRealtime());
         HISTORY.add(domain, blocked, System.currentTimeMillis());
     }
 
@@ -127,6 +129,7 @@ public class AdBlockVpnService extends VpnService {
         forwarded.set(0); answered.set(0); timeouts.set(0); errors.set(0);
         lastDomain = "-"; lastError = "-";
         HISTORY.clear();
+        SESSION_TRENDS.clear();
         QUERY_STATS.reset();
         remoteDomainCount = 0;
         TEMPORARY_ALLOWED.clear();

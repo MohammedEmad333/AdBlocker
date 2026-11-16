@@ -186,4 +186,7 @@
     <string name="settings_profile_export_failed">Could not export settings backup</string>
     <string name="settings_profile_invalid">Invalid or unsupported settings backup; nothing changed</string>
     <string name="settings_profile_restored_restart">Settings restored. Restart VPN to apply app exclusions and DNS transport.</string>
+    <string name="dashboard_trends_title">DNS decisions over the last hour</string>
+    <string name="dashboard_trends_empty">No DNS decisions in this session yet</string>
+    <string name="dashboard_trends_row">%1$d–%2$d min ago: %3$d blocked, %4$d passed</string>
 </resources>
