@@ -265,6 +265,7 @@ public final class SettingsActivity extends AppCompatActivity {
         });
         root.addView(refresh);
         label(getString(R.string.settings_https_hint), 12, R.color.muted);
+        autoRefreshSettings();
         section(getString(R.string.settings_custom_source_title));
         label(getString(R.string.settings_custom_source_caution), 12, R.color.muted);
         EditText customSource = new EditText(this);
@@ -317,6 +318,60 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override protected void onPause() {
         refreshHandler.removeCallbacks(refreshTicker);
         super.onPause();
+    }
+
+    private void autoRefreshSettings() {
+        section(getString(R.string.settings_auto_refresh_title));
+        CheckBox auto = new CheckBox(this);
+        auto.setText(R.string.settings_auto_refresh_enable);
+        auto.setTextColor(getColor(R.color.text));
+        auto.setChecked(settings.autoRefreshEnabled());
+        auto.setOnCheckedChangeListener((button, enabled) -> {
+            settings.setAutoRefreshEnabled(enabled);
+            if (!BlocklistAutoRefresh.sync(this, true) && enabled) {
+                settings.setAutoRefreshEnabled(false);
+                auto.setChecked(false);
+                toast(getString(R.string.settings_auto_refresh_schedule_failed));
+            }
+        });
+        root.addView(auto);
+        label(getString(R.string.settings_auto_refresh_frequency), 14, R.color.text);
+
+        Spinner frequency = new Spinner(this);
+        String[] frequencyIds = {AutoRefreshPolicy.DAILY, AutoRefreshPolicy.WEEKLY};
+        String[] names = {getString(R.string.settings_auto_refresh_daily),
+                getString(R.string.settings_auto_refresh_weekly)};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, names);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        frequency.setAdapter(adapter);
+        frequency.setSelection(AutoRefreshPolicy.WEEKLY.equals(
+                settings.autoRefreshFrequency()) ? 1 : 0);
+        frequency.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view,
+                    int position, long id) {
+                String selected = frequencyIds[position];
+                if (!selected.equals(settings.autoRefreshFrequency())) {
+                    settings.setAutoRefreshFrequency(selected);
+                    if (settings.autoRefreshEnabled()) BlocklistAutoRefresh.sync(
+                            SettingsActivity.this, true);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+        root.addView(frequency);
+
+        CheckBox unmetered = new CheckBox(this);
+        unmetered.setText(R.string.settings_auto_refresh_unmetered);
+        unmetered.setTextColor(getColor(R.color.text));
+        unmetered.setChecked(settings.autoRefreshUnmeteredOnly());
+        unmetered.setOnCheckedChangeListener((button, enabled) -> {
+            settings.setAutoRefreshUnmeteredOnly(enabled);
+            if (settings.autoRefreshEnabled())
+                BlocklistAutoRefresh.sync(this, true);
+        });
+        root.addView(unmetered);
+        label(getString(R.string.settings_auto_refresh_hint), 12, R.color.muted);
     }
 
     private void renderCustomSources(LinearLayout area) {

@@ -25,6 +25,11 @@ public final class FilterSettings {
     private static final String USE_DOH = "use_doh_transport";
     private static final String DOH_PROVIDER = "doh_provider";
     private static final String DNS_HISTORY_ENABLED = "dns_history_enabled";
+    private static final String AUTO_REFRESH_ENABLED = "auto_refresh_enabled";
+    private static final String AUTO_REFRESH_FREQUENCY = "auto_refresh_frequency";
+    private static final String AUTO_REFRESH_UNMETERED = "auto_refresh_unmetered";
+    private static final String AUTO_REFRESH_LAST_RUN = "auto_refresh_last_run";
+    private static final String AUTO_REFRESH_LAST_RESULT = "auto_refresh_last_result";
 
     public enum ManualRefreshState {
         NEVER, RUNNING, SUCCESS, PARTIAL, FAILED, NO_SOURCES;
@@ -132,6 +137,54 @@ public final class FilterSettings {
 
     private Set<String> copy(String key) {
         return new HashSet<>(prefs.getStringSet(key, Collections.emptySet()));
+    }
+
+    /** Background updates are off until the user explicitly opts in. */
+    public boolean autoRefreshEnabled() {
+        return prefs.getBoolean(AUTO_REFRESH_ENABLED, false);
+    }
+
+    public void setAutoRefreshEnabled(boolean enabled) {
+        prefs.edit().putBoolean(AUTO_REFRESH_ENABLED, enabled).apply();
+    }
+
+    public String autoRefreshFrequency() {
+        return AutoRefreshPolicy.normalize(
+                prefs.getString(AUTO_REFRESH_FREQUENCY, AutoRefreshPolicy.DAILY));
+    }
+
+    public void setAutoRefreshFrequency(String frequency) {
+        prefs.edit().putString(AUTO_REFRESH_FREQUENCY,
+                AutoRefreshPolicy.normalize(frequency)).apply();
+    }
+
+    /** Unmetered means Wi-Fi or another unmetered network, not strictly Wi-Fi. */
+    public boolean autoRefreshUnmeteredOnly() {
+        return prefs.getBoolean(AUTO_REFRESH_UNMETERED, true);
+    }
+
+    public void setAutoRefreshUnmeteredOnly(boolean enabled) {
+        prefs.edit().putBoolean(AUTO_REFRESH_UNMETERED, enabled).apply();
+    }
+
+    public long autoRefreshLastRun() {
+        return prefs.getLong(AUTO_REFRESH_LAST_RUN, 0L);
+    }
+
+    public BlocklistRefreshStatus.Outcome autoRefreshLastOutcome() {
+        String saved = prefs.getString(AUTO_REFRESH_LAST_RESULT, "");
+        try {
+            return BlocklistRefreshStatus.Outcome.valueOf(saved);
+        } catch (IllegalArgumentException invalid) {
+            return null;
+        }
+    }
+
+    public void recordAutoRefresh(BlocklistRefreshStatus.Outcome outcome) {
+        prefs.edit().putLong(AUTO_REFRESH_LAST_RUN, System.currentTimeMillis())
+                .putString(AUTO_REFRESH_LAST_RESULT,
+                        (outcome == null ? BlocklistRefreshStatus.Outcome.FAILED : outcome).name())
+                .apply();
     }
 
     public boolean dnsHistoryEnabled() {
