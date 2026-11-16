@@ -10,17 +10,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.InetAddress;
-import java.net.URI;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -157,37 +152,10 @@ public class BlocklistManager {
                           long minBytes) throws IOException {
         Log.i(TAG, "Downloading source " + sourceUrl);
         File tmp = new File(cache.getPath() + ".tmp");
-        URL url = new URL(sourceUrl);
-        if (!"https".equalsIgnoreCase(url.getProtocol())) {
-            throw new IOException("HTTPS required");
-        }
-        // Refuse public-looking hosts resolving to private/local addresses.
-        String host = url.getHost();
-        if (CustomBlocklistUrl.normalize(sourceUrl) == null
-                || !CustomBlocklistUrl.publicAddresses(InetAddress.getAllByName(host)))
-            throw new IOException("Unsafe list host");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setInstanceFollowRedirects(false);
-        conn.setConnectTimeout(10_000);
-        conn.setReadTimeout(15_000);
         try {
-            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                throw new IOException("Blocklist HTTP status: " + conn.getResponseCode());
-            }
-            if (conn.getContentLengthLong() > MAX_BLOCKLIST_BYTES)
-                throw new IOException("Blocklist exceeds safe download limit");
-            try (InputStream in = conn.getInputStream();
-                 FileOutputStream out = new FileOutputStream(tmp)) {
-                byte[] buf = new byte[8192];
-                int n;
-                long downloaded = 0;
-                while ((n = in.read(buf)) != -1) {
-                    downloaded += n;
-                    if (downloaded > MAX_BLOCKLIST_BYTES)
-                        throw new IOException("Blocklist exceeds safe download limit");
-                    out.write(buf, 0, n);
-                }
-            }
+            // DNS is checked by the transport at connect time; the same checked
+            // addresses are handed to OkHttp for the actual TLS connection.
+            SecureBlocklistTransport.download(sourceUrl, tmp, MAX_BLOCKLIST_BYTES);
             if (tmp.length() < minBytes) throw new IOException("Blocklist download too small");
             try (InputStream check = new FileInputStream(tmp)) {
                 if (parse(check).size() < minDomains) {
@@ -202,8 +170,8 @@ public class BlocklistManager {
             }
             Log.i(TAG, "Blocklist saved (" + cache.length() / 1024 + " KB)");
         } finally {
-            conn.disconnect();
-            if (tmp.exists() && !tmp.delete()) Log.w(TAG, "Could not delete temporary blocklist");
+            if (tmp.exists() && !tmp.delete())
+                Log.w(TAG, "Could not delete temporary blocklist");
         }
     }
 

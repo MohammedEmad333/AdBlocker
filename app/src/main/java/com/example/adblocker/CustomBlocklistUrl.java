@@ -32,19 +32,55 @@ final class CustomBlocklistUrl {
         }
     }
 
-    /** Reject destinations that resolve to private or special-purpose addresses. */
+    /** Refuse private, reserved and tunnel destinations even in mixed DNS answers. */
     static boolean publicAddresses(InetAddress[] addresses) {
         if (addresses == null || addresses.length == 0) return false;
-        for (InetAddress a : addresses) {
-            if (a == null || a.isAnyLocalAddress() || a.isLoopbackAddress()
-                    || a.isLinkLocalAddress() || a.isSiteLocalAddress()
-                    || a.isMulticastAddress()) return false;
-            byte[] b = a.getAddress();
-            if (b.length == 16 && (b[0] & 0xfe) == 0xfc) return false; // IPv6 ULA
-            if (b.length == 4 && ((b[0] & 255) == 0
-                    || ((b[0] & 255) == 100 && (b[1] & 0xc0) == 64)
-                    || ((b[0] & 255) == 198 && (b[1] & 255) == 18)
-                    || ((b[0] & 255) >= 224))) return false;
+        for (InetAddress address : addresses) {
+            if (address == null || address.isAnyLocalAddress()
+                    || address.isLoopbackAddress() || address.isLinkLocalAddress()
+                    || address.isSiteLocalAddress() || address.isMulticastAddress())
+                return false;
+            byte[] bytes = address.getAddress();
+            if (bytes.length == 4) {
+                if (!publicIpv4(bytes)) return false;
+            } else if (bytes.length == 16) {
+                if (!publicIpv6(bytes)) return false;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean publicIpv4(byte[] bytes) {
+        int a = bytes[0] & 255, b = bytes[1] & 255, c = bytes[2] & 255;
+        return a != 0 && a != 10 && a != 127 && a < 224
+                && !(a == 100 && b >= 64 && b <= 127)    // CGNAT
+                && !(a == 169 && b == 254)               // link-local
+                && !(a == 172 && b >= 16 && b <= 31)
+                && !(a == 192 && b == 168)
+                && !(a == 192 && b == 0 && (c == 0 || c == 2))
+                && !(a == 192 && b == 88 && c == 99)
+                && !(a == 198 && (b == 18 || b == 19))    // benchmark networks
+                && !(a == 198 && b == 51 && c == 100)     // TEST-NET-2
+                && !(a == 203 && b == 0 && c == 113);     // TEST-NET-3
+    }
+
+    private static boolean publicIpv6(byte[] bytes) {
+        int first = bytes[0] & 255, second = bytes[1] & 255;
+        // Well-known DNS64/NAT64: assess the embedded IPv4 destination.
+        if (first == 0x00 && second == 0x64
+                && (bytes[2] & 255) == 0xff && (bytes[3] & 255) == 0x9b) {
+            for (int i = 4; i < 12; i++) if (bytes[i] != 0) return false;
+            return publicIpv4(new byte[]{bytes[12], bytes[13], bytes[14], bytes[15]});
+        }
+        // Global unicast only, excluding special transition and documentation ranges.
+        if ((first & 0xe0) != 0x20) return false;
+        if (first == 0x20 && second == 0x02) return false; // 6to4 tunnel
+        if (first == 0x20 && second == 0x01) {
+            int third = bytes[2] & 255, fourth = bytes[3] & 255;
+            if (third == 0 && fourth == 0) return false; // Teredo tunnel
+            if (third == 0x0d && fourth == 0xb8) return false; // RFC 3849
         }
         return true;
     }

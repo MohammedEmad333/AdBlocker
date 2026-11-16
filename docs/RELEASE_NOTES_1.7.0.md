@@ -16,6 +16,9 @@
 - Live search of app exclusions by display label or Android package name,
   without clearing selected exceptions. A VPN restart remains required to
   apply app exclusions.
+- HTTPS blocklist transport validates DNS at connection time and uses only
+  approved IPs for the corresponding TLS connection (no DNS preflight race).
+  Proxies and redirects are disabled and cached fallbacks remain available.
 
 ## Release blockers
 
@@ -30,9 +33,8 @@
    invalid TLS, redirects, stale offline cache and partial refresh failures.
 5. Privacy testing of recording opt-out during live traffic, and of app
    exclusions after VPN restart in Arabic and English.
-6. Harden validation of custom download targets against hostname DNS
-   rebinding between preflight and the TLS connection. The current initial
-   DNS check alone is not comprehensive peer-IP validation.
+6. Verify the connect-time validated DNS transport with real HTTPS servers,
+   invalid certificates, DNS changes, DNS64/NAT64 and network handoffs.
 7. Choose a permanent Android application ID and verify signed upgrades
    and production release credentials before public distribution.
 

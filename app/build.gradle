@@ -62,5 +62,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.activity:activity:1.7.2'
     implementation 'androidx.core:core:1.12.0'
-    testImplementation 'junit:junit:4.13.2'
+    // OkHttp binds every HTTPS connection to DNS results validated at connect time.\n    implementation 'com.squareup.okhttp3:okhttp:4.12.0'\n    testImplementation 'junit:junit:4.13.2'
 }
