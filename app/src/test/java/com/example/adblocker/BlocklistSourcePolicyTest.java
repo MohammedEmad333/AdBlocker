@@ -25,6 +25,19 @@ public class BlocklistSourcePolicyTest {
         assertEquals(10, BlocklistSourcePolicy.minimumDomains(true));
     }
 
+    @Test public void cacheFreshnessRespectsBoundariesAndClockRollback() {
+        long now = 1_800_000_000_000L;
+        long day = BlocklistSourcePolicy.MAX_CACHE_AGE_MS;
+        assertTrue(BlocklistSourcePolicy.cacheFresh(4096, now - 1000, now, false));
+        assertTrue(BlocklistSourcePolicy.cacheFresh(250, now - day + 1, now, true));
+        assertFalse(BlocklistSourcePolicy.cacheFresh(250, now - day, now, true));
+        assertFalse(BlocklistSourcePolicy.cacheFresh(250, now + 1, now, true));
+        assertFalse(BlocklistSourcePolicy.cacheFresh(250, 0, now, true));
+        assertFalse(BlocklistSourcePolicy.cacheFresh(0, now - 1000, now, true));
+        assertFalse(BlocklistSourcePolicy.cacheFresh(17L * 1024 * 1024,
+                now - 1000, now, true));
+    }
+
     @Test public void alwaysRejectOversizedCache() {
         long huge = 16L * 1024 * 1024 + 1;
         assertFalse(BlocklistSourcePolicy.cacheUsable(huge, false));

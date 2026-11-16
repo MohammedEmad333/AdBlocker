@@ -6,6 +6,7 @@ final class BlocklistSourcePolicy {
     static final int CUSTOM_MIN_DOMAINS = 10;
     static final long BUILTIN_MIN_BYTES = 1024;
     static final long CUSTOM_MIN_BYTES = 1;
+    static final long MAX_CACHE_AGE_MS = 24L * 60 * 60 * 1000;
 
     private BlocklistSourcePolicy() {}
 
@@ -15,6 +16,13 @@ final class BlocklistSourcePolicy {
 
     static long minimumBytes(boolean custom) {
         return custom ? CUSTOM_MIN_BYTES : BUILTIN_MIN_BYTES;
+    }
+
+    /** Clock rollback/future timestamps must not keep stale caches fresh forever. */
+    static boolean cacheFresh(long bytes, long modifiedAt, long now, boolean custom) {
+        if (!cacheUsable(bytes, custom) || modifiedAt <= 0 || now < modifiedAt)
+            return false;
+        return now - modifiedAt < MAX_CACHE_AGE_MS;
     }
 
     static boolean cacheUsable(long bytes, boolean custom) {

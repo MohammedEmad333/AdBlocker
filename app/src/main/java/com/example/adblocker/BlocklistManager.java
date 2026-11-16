@@ -6,14 +6,10 @@ import android.util.Log;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -36,8 +32,6 @@ public class BlocklistManager {
 
     private static final String STEVENBLACK_CACHE = "blocklist.txt"; // migrate old installs in place
     private static final String ADAWAY_CACHE = "blocklist-adaway.txt";
-    private static final long MAX_CACHE_AGE_MS = 24L * 60 * 60 * 1000; // daily refresh
-
     private static final long MAX_BLOCKLIST_BYTES = 16L * 1024 * 1024;
 
     // Hostnames that appear in hosts files but must never be blocked.
@@ -119,8 +113,8 @@ public class BlocklistManager {
                                    BlocklistRefreshStatus status) {
         File cache = new File(context.getFilesDir(), fileName);
         boolean fresh = cache.exists()
-                && BlocklistSourcePolicy.cacheUsable(cache.length(), custom)
-                && System.currentTimeMillis() - cache.lastModified() < MAX_CACHE_AGE_MS;
+                && BlocklistSourcePolicy.cacheFresh(cache.length(),
+                        cache.lastModified(), System.currentTimeMillis(), custom);
         if (!cacheOnly && (force || !fresh)) {
             try {
                 download(sourceUrl, cache, BlocklistSourcePolicy.minimumDomains(custom),
@@ -150,11 +144,13 @@ public class BlocklistManager {
 
     private void download(String sourceUrl, File cache, int minDomains,
                           long minBytes) throws IOException {
-        Log.i(TAG, "Downloading source " + sourceUrl);
-        File tmp = new File(cache.getPath() + ".tmp");
+        // Log only the local cache key, never an optional third-party URL.
+        Log.i(TAG, "Updating source cache " + cache.getName());
+        // A unique staging file prevents parallel manual/background refreshes
+        // from clobbering each other's partial downloads.
+        File tmp = BlocklistCacheFiles.newStagingFile(cache);
         try {
-            // DNS is checked by the transport at connect time; the same checked
-            // addresses are handed to OkHttp for the actual TLS connection.
+            // The HTTPS transport validates DNS addresses at connect time.
             SecureBlocklistTransport.download(sourceUrl, tmp, MAX_BLOCKLIST_BYTES);
             if (tmp.length() < minBytes) throw new IOException("Blocklist download too small");
             try (InputStream check = new FileInputStream(tmp)) {
@@ -162,12 +158,8 @@ public class BlocklistManager {
                     throw new IOException("Blocklist download did not contain enough domains");
                 }
             }
-            try {
-                Files.move(tmp.toPath(), cache.toPath(),
-                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(tmp.toPath(), cache.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
+            // The old cache is untouched until all checks pass.
+            BlocklistCacheFiles.commit(tmp, cache);
             Log.i(TAG, "Blocklist saved (" + cache.length() / 1024 + " KB)");
         } finally {
             if (tmp.exists() && !tmp.delete())

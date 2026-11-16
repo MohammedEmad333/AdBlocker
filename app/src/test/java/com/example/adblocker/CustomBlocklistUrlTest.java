@@ -23,6 +23,20 @@ public class CustomBlocklistUrlTest {
         }
     }
 
+    @Test public void localDomainsCannotBypassChecksWithCaseOrTrailingDot() {
+        for (String url : new String[] {
+                "https://ROUTER.LOCAL/hosts",
+                "https://printer.LAN/hosts",
+                "https://endpoint.INTERNAL/hosts",
+                "https://router.local./hosts",
+                "https://lists.example.org./hosts"
+        }) {
+            assertNull(url, CustomBlocklistUrl.normalize(url));
+        }
+        assertEquals("https://lists.example.org/hosts",
+                CustomBlocklistUrl.normalize("https://LISTS.Example.Org/hosts"));
+    }
+
     @Test public void deniesLocalAndSpecialAddressResolution() throws Exception {
         assertFalse(CustomBlocklistUrl.publicAddresses(
                 new InetAddress[]{InetAddress.getByName("127.0.0.1")}));

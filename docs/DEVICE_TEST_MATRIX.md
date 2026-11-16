@@ -48,3 +48,30 @@ VPN consent/foreground service behavior, per-app exclusions, encrypted DNS
 compatibility, display-cutout layout or battery consumption. All cells in the
 physical-device matrix above remain **Pending** until tested and recorded on
 real devices. Do not treat an emulator green check as release approval.
+
+## AdBlocker 1.7.1 device acceptance (pending)
+
+The unit tests in 1.7.1 cover isolated staging files, atomic cache replacement,
+clock rollback handling and DNS64 address validation. They **do not** prove
+mobile-network behavior. Record the phone model, Android version, Wi-Fi/cellular
+network, time, and sanitized logs for each of the following before publishing:
+
+- [ ] Start two close-together manual/source refreshes; verify both complete
+      without a truncated shared temporary file or losing the last valid cache.
+- [ ] Test offline startup and a deliberately invalid/oversized list; confirm
+      the previously validated cache is still used.
+- [ ] Set the phone clock backwards across a cache refresh, return to the
+      correct time, and verify a remote refresh is attempted when online.
+- [ ] Test IPv6-only/DNS64/NAT64 cellular networking with a legitimate public
+      list host; confirm private-address translations fail closed.
+- [ ] Switch Wi-Fi to cellular and back during a list refresh and during VPN
+      filtering. Check DNS/DoH and resume/recovery behavior.
+- [ ] Test TLS hostname mismatch, expired certificate, HTTP redirects and
+      local/reserved DNS answers with a controlled test endpoint.
+- [ ] Validate the existing application's signed upgrade from versionCode 9
+      to 10, keeping package identity and user settings. **Do not change**
+      `com.example.adblocker` without an explicit migration/distribution plan.
+- [ ] Record battery/memory consumption over several hours of idle VPN use.
+
+All items are pending physical-device sign-off. CI/emulator success does not
+substitute for this checklist.

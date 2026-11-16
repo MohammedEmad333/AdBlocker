@@ -45,3 +45,17 @@ unsafe DNS answers, oversize responses, invalid TLS and non-identity
 compression fail closed, retaining any prior cache. Validate Wi-Fi/cellular,
 DNS64/NAT64, offline, TLS failures, network handoffs and three-source partial
 refreshes on real devices before public release.
+
+## AdBlocker 1.7.1: cache and host-validation maintenance
+
+Each refresh stages data in a separate same-directory temporary file. The app
+checks the length and parses enough domains before replacing the previously
+validated cache; invalid/partial updates preserve the last good version. A
+cache timestamp from the future (for example after the device clock moves
+backward) is treated as stale instead of indefinitely fresh. Local hostname
+suffix checks are case-insensitive and reject trailing dots.
+
+DNS64's well-known `64:ff9b::/96` prefix allows public embedded IPv4 addresses
+only; embedded private/reserved addresses are rejected. Other prefixes may fail
+closed. Confirm IPv6-only mobile-network compatibility on real devices before
+a public release. Diagnostics should not log user-defined list URLs.
