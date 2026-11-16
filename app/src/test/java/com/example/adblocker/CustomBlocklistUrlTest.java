@@ -36,6 +36,21 @@ public class CustomBlocklistUrlTest {
                 new InetAddress[]{InetAddress.getByName("1.1.1.1")}));
     }
 
+    @Test public void rejectsReservedAndTunneledAddresses() throws Exception {
+        for (String ip : new String[] {
+                "192.0.0.8", "192.0.2.9", "198.18.0.1", "198.51.100.42",
+                "203.0.113.7", "2001:db8::42", "2002:c0a8:0101::1",
+                "64:ff9b::a00:1" // DNS64 address embedding 10.0.0.1
+        }) {
+            assertFalse(ip, CustomBlocklistUrl.publicAddresses(
+                    new InetAddress[]{InetAddress.getByName(ip)}));
+        }
+        assertTrue(CustomBlocklistUrl.publicAddresses(new InetAddress[]{
+                InetAddress.getByName("2606:4700:4700::1111"),
+                InetAddress.getByName("64:ff9b::101:101")
+        }));
+    }
+
     @Test public void createsStableDistinctCacheKeys() {
         String first = CustomBlocklistUrl.cacheName("https://a.example/hosts");
         assertEquals(first, CustomBlocklistUrl.cacheName("https://a.example/hosts"));
