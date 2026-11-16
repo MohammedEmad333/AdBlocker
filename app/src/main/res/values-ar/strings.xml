@@ -186,4 +186,7 @@
     <string name="settings_profile_export_failed">تعذر تصدير نسخة الإعدادات</string>
     <string name="settings_profile_invalid">نسخة الإعدادات غير صالحة أو غير مدعومة، ولم تتغير الإعدادات</string>
     <string name="settings_profile_restored_restart">تم استعادة الإعدادات. أعد تشغيل VPN لتطبيق استثناءات التطبيقات وإعدادات DNS.</string>
+    <string name="dashboard_trends_title">قرارات تصفية DNS خلال الساعة الأخيرة</string>
+    <string name="dashboard_trends_empty">لا توجد قرارات تصفية DNS في هذه الجلسة بعد</string>
+    <string name="dashboard_trends_row">قبل %1$d–%2$d دقيقة: %3$d محظور، %4$d غير محظور</string>
 </resources>
