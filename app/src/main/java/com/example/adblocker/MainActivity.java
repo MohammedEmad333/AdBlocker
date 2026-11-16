@@ -19,6 +19,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
@@ -31,7 +32,8 @@ public final class MainActivity extends AppCompatActivity {
     private TextView statusText, upstreamText, stoppedCount, seenCount, allowedCount;
     private TextView blockedRate, streamText, healthText, domainsLoaded, topBlockedText;
     private ProgressBar blockingProgress;
-    private Button toggleButton;
+    private Button toggleButton, pauseButton;
+    private TextView pauseHint;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() {
@@ -72,6 +74,8 @@ public final class MainActivity extends AppCompatActivity {
         topBlockedText = findViewById(R.id.topBlockedText);
         blockingProgress = findViewById(R.id.blockingProgress);
         toggleButton = findViewById(R.id.toggleButton);
+        pauseButton = findViewById(R.id.pauseButton);
+        pauseHint = findViewById(R.id.pauseHint);
 
         findViewById(R.id.settingsButton).setOnClickListener(v ->
                 startActivity(new Intent(this, SettingsActivity.class)));
@@ -80,6 +84,32 @@ public final class MainActivity extends AppCompatActivity {
         findViewById(R.id.openLogButton).setOnClickListener(v ->
                 startActivity(new Intent(this, ActivityLogActivity.class)));
         toggleButton.setOnClickListener(v -> toggleProtection());
+        pauseButton.setOnClickListener(v -> {
+            if (!AdBlockVpnService.isRunning) return;
+            if (AdBlockVpnService.protectionPauseRemainingMs() > 0) {
+                AdBlockVpnService.resumeProtection();
+            } else {
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.pause_protection_title)
+                        .setMessage(R.string.pause_protection_warning)
+                        .setItems(new String[] {
+                                getString(R.string.pause_5_minutes),
+                                getString(R.string.pause_15_minutes),
+                                getString(R.string.pause_30_minutes)
+                        }, (dialog, which) -> {
+                            long[] durations = {
+                                    TimedProtectionPause.FIVE_MINUTES,
+                                    TimedProtectionPause.FIFTEEN_MINUTES,
+                                    TimedProtectionPause.THIRTY_MINUTES
+                            };
+                            AdBlockVpnService.pauseProtection(durations[which]);
+                            render();
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+            render();
+        });
         handleQuickTileIntent(getIntent(), savedInstanceState == null);
         render();
     }
@@ -158,9 +188,24 @@ public final class MainActivity extends AppCompatActivity {
         int allowed = AdBlockVpnService.QUERY_STATS.successfulAllowedResponses();
         int rate = queried == 0 ? 0 : (int) Math.round(100.0 * blocked / queried);
 
-        statusText.setText(running ? R.string.protection_on
+        long pauseMs = AdBlockVpnService.protectionPauseRemainingMs();
+        boolean paused = running && pauseMs > 0;
+        statusText.setText(paused ? R.string.protection_paused
+                : running ? R.string.protection_on
                 : starting ? R.string.protection_starting : R.string.protection_off);
-        statusText.setTextColor(getColor(running ? R.color.text : R.color.muted));
+        statusText.setTextColor(getColor(paused ? R.color.amber
+                : running ? R.color.text : R.color.muted));
+        pauseButton.setVisibility(running ? android.view.View.VISIBLE
+                : android.view.View.GONE);
+        pauseButton.setText(paused ? R.string.resume_protection
+                : R.string.pause_protection);
+        pauseHint.setVisibility(paused ? android.view.View.VISIBLE
+                : android.view.View.GONE);
+        if (paused) {
+            long seconds = (pauseMs + 999) / 1000;
+            pauseHint.setText(getString(R.string.pause_countdown,
+                    (seconds + 59) / 60));
+        }
         upstreamText.setText(running
                 ? getString(R.string.resolver_format, AdBlockVpnService.upstreamInfo)
                 : getString(starting ? R.string.protection_preparing : R.string.protection_prompt));

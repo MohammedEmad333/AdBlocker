@@ -77,6 +77,23 @@ public class AdBlockVpnService extends VpnService {
     public static final DnsHistory HISTORY = new DnsHistory(512);
     private static final TemporaryDomainAllowlist TEMPORARY_ALLOWED =
             new TemporaryDomainAllowlist();
+    private static final TimedProtectionPause PROTECTION_PAUSE =
+            new TimedProtectionPause();
+
+    /** The pause is session-only and does not alter any saved rules. */
+    public static boolean pauseProtection(long durationMs) {
+        return isRunning && PROTECTION_PAUSE.pause(durationMs,
+                android.os.SystemClock.elapsedRealtime());
+    }
+
+    public static void resumeProtection() {
+        PROTECTION_PAUSE.clear();
+    }
+
+    public static long protectionPauseRemainingMs() {
+        return isRunning ? PROTECTION_PAUSE.remaining(
+                android.os.SystemClock.elapsedRealtime()) : 0;
+    }
 
     /**
      * User-initiated, RAM-only exact-domain exception for this VPN session.
@@ -113,6 +130,7 @@ public class AdBlockVpnService extends VpnService {
         QUERY_STATS.reset();
         remoteDomainCount = 0;
         TEMPORARY_ALLOWED.clear();
+        PROTECTION_PAUSE.clear();
     }
 
     private ParcelFileDescriptor tunInterface;
@@ -333,6 +351,7 @@ public class AdBlockVpnService extends VpnService {
             if (tcpScheduler != null) tcpScheduler.shutdownNow();
             tcpTunnel.clear();
             TEMPORARY_ALLOWED.clear();
+            PROTECTION_PAUSE.clear();
             closeTun();
             isRunning = false;
             isStarting = false;
@@ -532,8 +551,9 @@ public class AdBlockVpnService extends VpnService {
     }
 
     private boolean isBlocked(String domain) {
-        return !TEMPORARY_ALLOWED.isAllowed(domain,
-                android.os.SystemClock.elapsedRealtime())
+        long now = android.os.SystemClock.elapsedRealtime();
+        return !PROTECTION_PAUSE.isPaused(now)
+                && !TEMPORARY_ALLOWED.isAllowed(domain, now)
                 && filterPolicy.shouldBlock(domain);
     }
 

@@ -85,6 +85,27 @@
                 android:textColor="@color/ink"
                 android:textSize="16sp"
                 android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/pauseButton"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/pill_outline"
+                android:text="@string/pause_protection"
+                android:textAllCaps="false"
+                android:textColor="@color/text"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/pauseHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pause_warning_inline"
+                android:textColor="@color/amber"
+                android:textSize="13sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <TextView
