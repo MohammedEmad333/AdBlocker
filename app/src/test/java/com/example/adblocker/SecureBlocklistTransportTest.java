@@ -52,6 +52,23 @@ public class SecureBlocklistTransportTest {
         assertEquals(2, calls.get());
     }
 
+    @Test public void dns64PermitsPublicEmbeddedIpv4ButRejectsPrivateAndMixed() throws Exception {
+        Dns publicDns64 = host -> Collections.singletonList(
+                InetAddress.getByName("64:ff9b::808:808"));
+        List<InetAddress> accepted = new SecureBlocklistTransport.ValidatedDns(
+                "lists.example.org", publicDns64).lookup("lists.example.org");
+        assertEquals(1, accepted.size());
+
+        Dns privateDns64 = host -> Arrays.asList(
+                InetAddress.getByName("64:ff9b::808:808"),
+                InetAddress.getByName("64:ff9b::a00:1"));
+        try {
+            new SecureBlocklistTransport.ValidatedDns(
+                    "lists.example.org", privateDns64).lookup("lists.example.org");
+            fail("Mixed DNS64 answers must be rejected");
+        } catch (UnknownHostException expected) { /* no unsafe connection */ }
+    }
+
     @Test public void rejectsUnexpectedHostWithoutResolvingIt() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         Dns upstream = host -> {

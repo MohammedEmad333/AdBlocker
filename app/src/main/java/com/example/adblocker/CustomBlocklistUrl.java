@@ -16,17 +16,22 @@ final class CustomBlocklistUrl {
         try {
             URI uri = new URI(raw.trim());
             String host = uri.getHost();
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null
+            String normalizedHost = host == null ? null
+                    : host.toLowerCase(java.util.Locale.ROOT);
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || normalizedHost == null
                     || uri.getUserInfo() != null || uri.getPort() != -1
                     || uri.getFragment() != null || uri.getRawQuery() != null
-                    || host.endsWith(".local") || host.endsWith(".internal")
-                    || host.endsWith(".localhost") || host.endsWith(".lan")
-                    || DomainRules.normalize(host) == null) return null;
+                    || normalizedHost.endsWith(".")
+                    || normalizedHost.endsWith(".local")
+                    || normalizedHost.endsWith(".internal")
+                    || normalizedHost.endsWith(".localhost")
+                    || normalizedHost.endsWith(".lan")
+                    || DomainRules.normalize(normalizedHost) == null) return null;
             String path = uri.getRawPath();
             if (path == null || path.isEmpty()) path = "/";
             if (!path.startsWith("/") || path.length() > 1024
                     || path.contains("\\") || path.contains("%")) return null;
-            return "https://" + host.toLowerCase(java.util.Locale.ROOT) + path;
+            return "https://" + normalizedHost + path;
         } catch (URISyntaxException e) {
             return null;
         }
