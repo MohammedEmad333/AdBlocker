@@ -25,12 +25,15 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import java.text.DateFormat;
+import java.util.Date;
 import java.util.List;
 
 /** Live, localized protection overview. DNS records stay in process memory only. */
 public final class MainActivity extends AppCompatActivity {
     private TextView statusText, upstreamText, stoppedCount, seenCount, allowedCount;
     private TextView blockedRate, streamText, healthText, domainsLoaded, topBlockedText;
+    private TextView listFreshnessText, privacyStateText;
     private ProgressBar blockingProgress;
     private Button toggleButton, pauseButton;
     private TextView pauseHint;
@@ -71,6 +74,8 @@ public final class MainActivity extends AppCompatActivity {
         streamText = findViewById(R.id.streamText);
         healthText = findViewById(R.id.healthText);
         domainsLoaded = findViewById(R.id.domainsLoaded);
+        listFreshnessText = findViewById(R.id.listFreshnessText);
+        privacyStateText = findViewById(R.id.privacyStateText);
         topBlockedText = findViewById(R.id.topBlockedText);
         blockingProgress = findViewById(R.id.blockingProgress);
         toggleButton = findViewById(R.id.toggleButton);
@@ -186,7 +191,7 @@ public final class MainActivity extends AppCompatActivity {
         int queried = Math.max(0, AdBlockVpnService.queriesSeen.get());
         // Failed, timed-out and still-pending queries are not successful answers.
         int allowed = AdBlockVpnService.QUERY_STATS.successfulAllowedResponses();
-        int rate = queried == 0 ? 0 : (int) Math.round(100.0 * blocked / queried);
+        int rate = SessionDashboardState.blockPercentage(blocked, queried);
 
         long pauseMs = AdBlockVpnService.protectionPauseRemainingMs();
         boolean paused = running && pauseMs > 0;
@@ -222,6 +227,20 @@ public final class MainActivity extends AppCompatActivity {
         blockingProgress.setProgress(rate);
         domainsLoaded.setText(getString(R.string.domains_loaded_format,
                 AdBlockVpnService.downloadedDomainCount()));
+        FilterSettings currentSettings = new FilterSettings(this);
+        long updated = currentSettings.lastDownloadedAt();
+        boolean stale = SessionDashboardState.needsSourceUpdate(
+                updated, System.currentTimeMillis());
+        listFreshnessText.setText(updated == 0
+                ? R.string.dashboard_lists_never_updated
+                : stale ? R.string.dashboard_lists_update_due
+                : R.string.dashboard_lists_recent);
+        if (updated > 0) listFreshnessText.append(" · " +
+                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                        .format(new Date(updated)));
+        privacyStateText.setText(currentSettings.dnsHistoryEnabled()
+                ? R.string.dashboard_history_enabled
+                : R.string.dashboard_history_disabled);
         healthText.setText(getString(R.string.health_format,
                 AdBlockVpnService.answered.get(),
                 AdBlockVpnService.timeouts.get(),
@@ -231,6 +250,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void renderTopBlocked() {
+        if (!new FilterSettings(this).dnsHistoryEnabled()) {
+            topBlockedText.setText(R.string.dashboard_history_disabled);
+            return;
+        }
         List<DnsHistory.DomainCount> top = AdBlockVpnService.HISTORY.topBlocked(3);
         if (top.isEmpty()) {
             topBlockedText.setText(R.string.top_blocked_empty);
@@ -245,6 +268,11 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void renderPreview() {
+        if (!new FilterSettings(this).dnsHistoryEnabled()) {
+            streamText.setText(R.string.dashboard_history_disabled);
+            streamText.setTextColor(getColor(R.color.muted));
+            return;
+        }
         List<DnsHistory.Entry> events = AdBlockVpnService.HISTORY.search(
                 "", DnsHistory.Filter.ALL, 6);
         if (events.isEmpty()) {

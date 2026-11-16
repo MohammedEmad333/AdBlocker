@@ -224,6 +224,14 @@
                 android:textColor="@color/muted"
                 android:textSize="12sp" />
             <TextView
+                android:id="@+id/listFreshnessText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/dashboard_lists_never_updated"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
+            <TextView
                 android:id="@+id/healthText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -232,6 +240,15 @@
                 android:textColor="@color/muted"
                 android:textSize="12sp" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/privacyStateText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/dashboard_history_enabled"
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
 
         <TextView
             android:layout_width="match_parent"

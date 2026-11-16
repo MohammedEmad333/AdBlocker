@@ -170,4 +170,9 @@
     <string name="pause_30_minutes">30 minutes</string>
     <string name="pause_countdown">Blocking resumes automatically in about %1$d min</string>
     <string name="pause_warning_inline">Blocking is temporarily disabled. DNS protection resumes automatically.</string>
+    <string name="dashboard_lists_never_updated">Blocklists have not been downloaded yet</string>
+    <string name="dashboard_lists_update_due">Blocklist refresh recommended</string>
+    <string name="dashboard_lists_recent">Blocklists downloaded recently</string>
+    <string name="dashboard_history_disabled">DNS history is off for privacy. Filtering and aggregate totals continue.</string>
+    <string name="dashboard_history_enabled">DNS activity history is kept only in temporary memory</string>
 </resources>
