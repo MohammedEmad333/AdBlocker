@@ -10,6 +10,20 @@ public class DohReplyPolicyTest {
         assertTrue(DohReplyPolicy.isAcceptable(query, reply));
     }
 
+    @Test public void rejectsDoHReplyWithMismatchedRecursionIntent() {
+        byte[] recursiveQuery = DnsPacket.buildQuery("example.com", 0x1515);
+        byte[] reply = DnsPacket.buildNxDomain(recursiveQuery, 0,
+                recursiveQuery.length);
+        reply[2] &= (byte) ~0x01;
+        assertFalse(DohReplyPolicy.isAcceptable(recursiveQuery, reply));
+
+        byte[] nonRecursiveQuery = recursiveQuery.clone();
+        nonRecursiveQuery[2] &= (byte) ~0x01;
+        byte[] nonRecursiveReply = DnsPacket.buildNxDomain(nonRecursiveQuery,
+                0, nonRecursiveQuery.length);
+        assertTrue(DohReplyPolicy.isAcceptable(nonRecursiveQuery, nonRecursiveReply));
+    }
+
     @Test public void rejectsTruncatedDnsOverHttpsReply() {
         byte[] query = DnsPacket.buildQuery("example.com", 0x1512);
         byte[] reply = DnsPacket.buildNxDomain(query, 0, query.length);
