@@ -37,6 +37,26 @@ public class DnsResponseValidationTest {
         assertFalse(DnsTcpWire.matchesQuery(q, reply, reply.length));
     }
 
+    @Test public void recursionDesiredMustMatchTheOriginalRequest() {
+        byte[] query = DnsPacket.buildQuery("example.com", 0x2206);
+        byte[] reply = DnsPacket.buildNxDomain(query, 0, query.length);
+        assertTrue(DnsTcpWire.matchesQuery(query, reply));
+
+        // Same transaction ID, opcode and question cannot compensate for
+        // a response that fails to echo the requested recursion behavior.
+        reply[2] &= (byte) ~0x01;
+        assertFalse(DnsTcpWire.matchesQuery(query, reply));
+
+        // A non-recursive request with a non-recursive reply is also valid.
+        byte[] nonRecursive = query.clone();
+        nonRecursive[2] &= (byte) ~0x01;
+        byte[] nonRecursiveReply = DnsPacket.buildNxDomain(
+                nonRecursive, 0, nonRecursive.length);
+        assertTrue(DnsTcpWire.matchesQuery(nonRecursive, nonRecursiveReply));
+        nonRecursiveReply[2] |= 0x01;
+        assertFalse(DnsTcpWire.matchesQuery(nonRecursive, nonRecursiveReply));
+    }
+
     @Test public void originalQuestionTypeAndDomainStillRequired() {
         byte[] q = DnsPacket.buildQuery("example.com", 0x2205);
         byte[] wrong = DnsPacket.buildQuery("example.net", 0x2205);
