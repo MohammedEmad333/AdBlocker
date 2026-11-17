@@ -44,7 +44,10 @@ public final class DnsTcpWire {
                 || receivedLength < 17 || receivedLength > response.length
                 || query[0] != response[0] || query[1] != response[1]
                 || (response[2] & 0x80) == 0
-                || (response[2] & 0x78) != (query[2] & 0x78))
+                || (response[2] & 0x78) != (query[2] & 0x78)
+                // A response must echo the request's recursion-desired bit.
+                // An unrelated reply with the same ID/question is not enough.
+                || (response[2] & 0x01) != (query[2] & 0x01))
             return false;
         // Require the original DNS opcode and the complete original question.
         // Transaction ID alone is insufficient; ignore case in DNS names.
