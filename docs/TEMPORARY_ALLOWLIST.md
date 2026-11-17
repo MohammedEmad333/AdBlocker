@@ -25,3 +25,11 @@ intercept encrypted DNS requests from other apps.
 - Check the user-facing Arabic/English buttons and accessibility at large
   system font sizes.
 - Do not count Android emulator launcher smoke tests as proof of VPN routing.
+
+## Clock-rollback hardening (1.9.3 development)
+
+Temporary domain exemptions now fail closed if the monotonic elapsed clock
+regresses. The entire RAM-only allowlist is cleared before the old expiry
+could be reused. Normal expiration, bounded storage and user-controlled
+renewal are unchanged. The regression is unit-tested; real device
+pause/resume, clock and VPN lifecycle checks still require issue #64 QA.

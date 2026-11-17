@@ -38,6 +38,24 @@ public class TemporaryDomainAllowlistTest {
         assertEquals(0, list.activeCount(0));
     }
 
+    @Test public void elapsedTimeRollbackClearsAllExemptions() {
+        TemporaryDomainAllowlist list = new TemporaryDomainAllowlist();
+        assertTrue(list.grant("ads.example.com", TemporaryDomainAllowlist.ONE_HOUR, 800000));
+        assertTrue(list.isAllowed("ads.example.com", 900000));
+        // A monotonic-time regression must not reuse the old expiry.
+        assertFalse(list.isAllowed("ads.example.com", 200));
+        assertEquals(0, list.activeCount(500));
+        assertTrue(list.grant("new.example.com", TemporaryDomainAllowlist.FIFTEEN_MINUTES, 501));
+        assertTrue(list.isAllowed("new.example.com", 502));
+    }
+
+    @Test public void invalidNegativeTimeDoesNotPruneActiveGrants() {
+        TemporaryDomainAllowlist list = new TemporaryDomainAllowlist();
+        assertTrue(list.grant("ads.example.com", TemporaryDomainAllowlist.ONE_HOUR, 100));
+        assertEquals(0, list.activeCount(-1));
+        assertTrue(list.isAllowed("ads.example.com", 101));
+    }
+
     @Test public void limitsMemoryAndClearsOnSessionReset() {
         TemporaryDomainAllowlist list = new TemporaryDomainAllowlist();
         for (int i = 0; i < TemporaryDomainAllowlist.MAX_ENTRIES; i++) {
