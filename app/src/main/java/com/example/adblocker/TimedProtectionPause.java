@@ -9,17 +9,33 @@ final class TimedProtectionPause {
     static final long FIFTEEN_MINUTES = 15L * 60 * 1000;
     static final long THIRTY_MINUTES = 30L * 60 * 1000;
     private long expiresAt;
+    private long lastObservedMs = -1;
+
+    /**
+     * A monotonic-time regression can otherwise extend a previously granted
+     * blocking pause. End that pause instead of continuing with an old deadline.
+     */
+    private void observe(long nowMs) {
+        if (lastObservedMs >= 0 && nowMs < lastObservedMs) expiresAt = 0;
+        lastObservedMs = nowMs;
+    }
 
     synchronized boolean pause(long durationMs, long nowMs) {
         if (durationMs != FIVE_MINUTES && durationMs != FIFTEEN_MINUTES
                 && durationMs != THIRTY_MINUTES || nowMs < 0
                 || nowMs > Long.MAX_VALUE - durationMs) return false;
+        observe(nowMs);
         expiresAt = nowMs + durationMs;
         return true;
     }
 
     synchronized long remaining(long nowMs) {
-        if (expiresAt == 0 || nowMs < 0 || nowMs >= expiresAt) {
+        if (nowMs < 0) {
+            clear(); // invalid elapsed time must never keep blocking disabled
+            return 0;
+        }
+        observe(nowMs);
+        if (expiresAt == 0 || nowMs >= expiresAt) {
             expiresAt = 0;
             return 0;
         }
@@ -28,5 +44,8 @@ final class TimedProtectionPause {
 
     synchronized boolean isPaused(long nowMs) { return remaining(nowMs) > 0; }
 
-    synchronized void clear() { expiresAt = 0; }
+    synchronized void clear() {
+        expiresAt = 0;
+        lastObservedMs = -1;
+    }
 }

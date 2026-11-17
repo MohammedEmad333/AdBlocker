@@ -18,3 +18,11 @@ is required. Restarting or stopping the VPN clears any pause.
 
 Before public release, validate expiry across screen-off, system-clock change,
 rotation, VPN stop/revoke and connectivity handoff on actual devices.
+
+## AdBlocker 1.9.4 clock-safety update
+
+The in-memory pause is also invalidated if elapsed monotonic time
+regresses or becomes invalid. This prevents a timer reset from extending
+the period when DNS blocking is disabled. Users can always explicitly
+start a new 5/15/30-minute pause. Device VPN lifecycle checks remain
+part of issue #64.

@@ -98,6 +98,54 @@ public class DnsResponseCacheTest {
         assertEquals(0, cache.size());
     }
 
+    @Test public void refusesNonstandardQueryHeaders() {
+        byte[] ordinary = DnsPacket.buildQuery("example.com", 0x4a00);
+        // Flag variants, fake query-side response and impossible record counts.
+        int[][] mutations = {
+                {2, 0}, {2, 0x81}, {2, 0x11},
+                {3, 0x10}, {3, 0x20},
+                {6, 1}, {7, 1}, {8, 1}, {9, 1}, {10, 1}, {11, 1}
+        };
+        for (int[] mutation : mutations) {
+            DnsResponseCache cache = new DnsResponseCache();
+            byte[] altered = ordinary.clone();
+            altered[mutation[0]] = (byte) mutation[1];
+            cache.put(altered, answer(altered, 30), 1000);
+            assertEquals("Must not cache modified header byte " + mutation[0],
+                    0, cache.size());
+            assertNull(cache.get(altered, 1001));
+        }
+        DnsResponseCache valid = new DnsResponseCache();
+        valid.put(ordinary, answer(ordinary, 30), 1000);
+        assertNotNull(valid.get(ordinary, 1001));
+    }
+
+    @Test public void refusesMalformedResponseFlagsButForwardsWithoutCache() {
+        byte[] query = DnsPacket.buildQuery("example.com", 0x4a01);
+        int[][] mutations = {
+                {2, 0x80},   // QR with RD cleared; no longer matches request
+                {2, 0x83},   // truncated response
+                {3, 0xc0},   // reserved Z bit set
+                {3, 0xa0},   // DNSSEC authenticated-data flag
+                {3, 0x90},   // checking-disabled flag
+                {3, 0x83}    // NXDOMAIN
+        };
+        for (int[] mutation : mutations) {
+            DnsResponseCache cache = new DnsResponseCache();
+            byte[] reply = answer(query, 30);
+            reply[mutation[0]] = (byte) mutation[1];
+            cache.put(query, reply, 1000);
+            assertEquals("Must not cache unexpected response flags",
+                    0, cache.size());
+        }
+        // RA is an ordinary response flag and remains accepted.
+        DnsResponseCache valid = new DnsResponseCache();
+        byte[] reply = answer(query, 30);
+        assertEquals(0x80, reply[3] & 0xff);
+        valid.put(query, reply, 1000);
+        assertNotNull(valid.get(query, 1001));
+    }
+
     @Test public void refusesQueriesWithEdnsOrExtraData() {
         DnsResponseCache cache = new DnsResponseCache();
         byte[] query = DnsPacket.buildQuery("example.com", 0x3012);

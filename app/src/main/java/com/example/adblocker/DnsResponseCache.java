@@ -34,8 +34,14 @@ final class DnsResponseCache {
     private static String key(byte[] query) {
         if (query == null || query.length < 17 || query.length > 4096) return null;
         int end = DnsPacket.questionEnd(query, 0, query.length);
-        // No EDNS or any additional query data in this conservative cache.
+        // Cache only an ordinary recursive query with one question and no
+        // answer, authority or additional records. Non-standard opcodes,
+        // query-side responses and DNSSEC control flags bypass this cache.
+        // They are still forwarded normally by the VPN.
         if (end < 0 || end != query.length
+                || query[2] != 1 || query[3] != 0
+                || query[6] != 0 || query[7] != 0
+                || query[8] != 0 || query[9] != 0
                 || query[10] != 0 || query[11] != 0) return null;
         return Base64.getEncoder().encodeToString(
                 Arrays.copyOfRange(query, 2, query.length));
@@ -64,7 +70,7 @@ final class DnsResponseCache {
         String key = key(query);
         if (key == null || reply == null || now < 0
                 || !DnsTcpWire.matchesQuery(query, reply)
-                || (reply[2] & 2) != 0 || (reply[3] & 15) != 0
+                || (reply[2] & 3) != 1 || (reply[3] & 0x7f) != 0
                 || (reply[6] & 255) != 0 || (reply[7] & 255) != 1
                 || reply[8] != 0 || reply[9] != 0
                 || reply[10] != 0 || reply[11] != 0) return;

@@ -31,6 +31,33 @@ public class TimedProtectionPauseTest {
         assertEquals(0, pause.remaining(100));
     }
 
+    @Test public void monotonicClockRollbackImmediatelyReenablesBlocking() {
+        TimedProtectionPause pause = new TimedProtectionPause();
+        assertTrue(pause.pause(TimedProtectionPause.THIRTY_MINUTES, 1_000_000));
+        assertTrue(pause.isPaused(1_100_000));
+        // A regression must fail closed, not extend the blocking bypass.
+        assertEquals(0, pause.remaining(100));
+        assertFalse(pause.isPaused(101));
+        // A fresh pause requires an explicit new user action.
+        assertTrue(pause.pause(TimedProtectionPause.FIVE_MINUTES, 102));
+        assertEquals(TimedProtectionPause.FIVE_MINUTES, pause.remaining(102));
+    }
+
+    @Test public void invalidElapsedTimeClearsExistingPause() {
+        TimedProtectionPause pause = new TimedProtectionPause();
+        assertTrue(pause.pause(TimedProtectionPause.FIFTEEN_MINUTES, 100));
+        assertEquals(0, pause.remaining(-1));
+        assertFalse(pause.isPaused(101));
+    }
+
+    @Test public void rollbackDuringNewPauseDropsOldDeadline() {
+        TimedProtectionPause pause = new TimedProtectionPause();
+        assertTrue(pause.pause(TimedProtectionPause.THIRTY_MINUTES, 900_000));
+        assertTrue(pause.pause(TimedProtectionPause.FIVE_MINUTES, 10));
+        assertEquals(TimedProtectionPause.FIVE_MINUTES, pause.remaining(10));
+        assertFalse(pause.isPaused(10 + TimedProtectionPause.FIVE_MINUTES));
+    }
+
     @Test public void repeatedQueriesObserveExpiryWithoutAlarm() {
         TimedProtectionPause pause = new TimedProtectionPause();
         assertTrue(pause.pause(TimedProtectionPause.FIFTEEN_MINUTES, 1_000_000));
