@@ -23,3 +23,13 @@ low-risk performance improvement, not a general-purpose recursive resolver.
 Remaining QA: real DNS responses with A and AAAA records, changing TTL,
 truncated DNS, EDNS, Wi-Fi/cellular handoffs, provider failover and
 high-concurrency access. No real-device performance gain is claimed yet.
+
+## AdBlocker 1.9.4 conservative DNS header validation
+
+Only standard recursive queries (RD=1, normal opcode, no DNSSEC flags,
+one question, no answer/authority/additional sections) are eligible
+for the cache. DNS replies must match the requested recursion flag
+and contain no truncation, RCODE, reserved or DNSSEC control flags.
+Non-eligible requests continue through the upstream resolver; they
+are not rejected or altered by the cache. Unit tests cover unusual
+request and response flag combinations.
