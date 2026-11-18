@@ -68,6 +68,11 @@ public final class DnsTunnelPacket {
             if (udpLen != length - header || u16(packet, udp + 6) == 0) return null;
             // Malformed IPv6 UDP checksums must not be relayed.
             if (ipv6UdpChecksum(java.util.Arrays.copyOf(packet, length)) != 0xffff) return null;
+        } else if (u16(packet, udp + 6) != 0
+                && ipv4UdpChecksum(packet, header, udpLen) != 0xffff) {
+            // In IPv4 a zero checksum is allowed by RFC 768. When a sender
+            // supplies a checksum, however, a mismatch must not be forwarded.
+            return null;
         }
         int dnsOffset = udp + 8, dnsLength = udpLen - 8;
         if ((packet[dnsOffset + 2] & 0xf8) != 0) return null;
@@ -110,6 +115,30 @@ public final class DnsTunnelPacket {
         answer[46] = (byte) (checksum >>> 8);
         answer[47] = (byte) checksum;
         return answer;
+    }
+
+    /**
+     * UDP-over-IPv4 checksum with the RFC 768 pseudo-header. The caller uses
+     * only the declared UDP length, not potential IP padding or a reused TUN
+     * buffer. A packet containing its own valid checksum evaluates to 0xffff,
+     * matching the convention of ipv6UdpChecksum below.
+     */
+    static int ipv4UdpChecksum(byte[] packet, int ipHeaderLength, int udpLength) {
+        if (packet == null || packet.length < 28
+                || ((packet[0] >>> 4) & 0x0f) != 4
+                || ipHeaderLength < 20
+                || ipHeaderLength != (packet[0] & 0x0f) * 4
+                || ipHeaderLength > packet.length - 8
+                || udpLength < 8 || udpLength > packet.length - ipHeaderLength)
+            throw new IllegalArgumentException("Invalid IPv4 UDP checksum bounds");
+        long sum = words(packet, 12, 8); // IPv4 source and destination
+        sum += UDP;
+        sum += udpLength & 0xffff;
+        sum += words(packet, ipHeaderLength, udpLength);
+        while ((sum >>> 16) != 0) sum = (sum & 0xffff) + (sum >>> 16);
+        int checksum = (int) (~sum & 0xffff);
+        // A calculated zero checksum is transmitted as all ones.
+        return checksum == 0 ? 0xffff : checksum;
     }
 
     /**
