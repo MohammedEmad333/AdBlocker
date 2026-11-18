@@ -75,3 +75,14 @@ network, time, and sanitized logs for each of the following before publishing:
 
 All items are pending physical-device sign-off. CI/emulator success does not
 substitute for this checklist.
+
+## AdBlocker 1.9.6: physical-device IPv4 UDP checksum checks
+
+- [ ] Confirm on physical phones that normal DNS works for apps sending
+      IPv4 UDP with a zero checksum (legal under RFC 768) or a valid one.
+- [ ] In a controlled test, inject a nonzero incorrect IPv4 UDP checksum and
+      verify the packet is discarded without breaking subsequent valid DNS.
+- [ ] Confirm IPv4 options, odd-length DNS payloads, IPv6 DNS, protected DoH
+      and TCP fallback continue working as before.
+- [ ] Observe real-device Android 8-16 behavior before enabling production
+      release signing. The automated JVM cases do not replace device QA.
