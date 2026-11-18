@@ -94,7 +94,16 @@ public class Ipv4UdpChecksumTest {
         padded[3] = (byte) padded.length;
         Arrays.fill(padded, packet.length, padded.length, (byte) 0x5a);
         assertNotNull(DnsTunnelPacket.parse(padded, padded.length));
-        assertNotNull(DnsTunnelPacket.parse(padded, packet.length));
+        // If the IP total-length header says padding is present, reporting
+        // fewer received bytes than that header claims must be rejected.
+        assertNull(DnsTunnelPacket.parse(padded, packet.length));
+
+        // A reused TUN buffer may be larger than the actual received packet.
+        // In that case the original (smaller) IP total length is unchanged.
+        byte[] unusedBuffer = Arrays.copyOf(packet, packet.length + 10);
+        Arrays.fill(unusedBuffer, packet.length, unusedBuffer.length, (byte) 0x5a);
+        assertNotNull(DnsTunnelPacket.parse(unusedBuffer, packet.length));
+        assertNotNull(DnsTunnelPacket.parse(unusedBuffer, unusedBuffer.length));
     }
 
     @Test public void helperRejectsMalformedBounds() {
