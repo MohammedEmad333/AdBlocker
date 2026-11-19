@@ -24,7 +24,7 @@ if [ -z "$application_id" ] || [ -z "$version_code" ] || [ -z "$version_name" ];
   exit 1
 fi
 
-selected="$ADB_SERIAL"
+selected="${ADB_SERIAL:-}"
 if [ -z "$selected" ]; then
   devices="$(adb devices 2>/dev/null)" || {
     echo "ERROR: Could not query ADB devices." >&2
