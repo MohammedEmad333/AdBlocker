@@ -17,9 +17,10 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.13'
+          # Keep Gradle User Home out of shared caches for signing-secret jobs.
           cache-disabled: true
       - name: Install Android platform
         run: |
@@ -45,7 +46,7 @@ jobs:
           trap 'rm -f "$ADBLOCKER_KEYSTORE_PATH"' EXIT
           printf '%s' "$ADBLOCKER_KEYSTORE_BASE64" | base64 --decode > "$ADBLOCKER_KEYSTORE_PATH"
           unset ADBLOCKER_KEYSTORE_BASE64
-          gradle --no-daemon --stacktrace lintRelease testDebugUnitTest assembleRelease
+          bash scripts/ci-gradle.sh lintRelease testDebugUnitTest assembleRelease
           apk="app/build/outputs/apk/release/app-release.apk"
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"

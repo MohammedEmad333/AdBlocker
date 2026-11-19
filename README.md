@@ -48,3 +48,13 @@ IPv4/IPv6 DNS servers are now handled by a **bounded DNS-specific TCP endpoint**
 It supports a single in-flight DNS query per session, segmented replies and
 limited retransmission. Pipelining, out-of-order TCP segment reassembly, DoH,
 DoT and general TCP connections are not supported. Device validation is pending.
+
+## CI resilience (1.9.7)
+
+The Gradle setup action restores dependency caches on PR builds and writes
+them on `main`. A bounded, strictly classified retry handles transient
+dependency repository HTTP 429/502/503/504 errors. Compilation, lint and test
+failures are **never** retried away. The retry behavior has an offline shell
+self-test; APK metadata and SHA-256 are verified against `app/build.gradle`.
+See `docs/CI_RELIABILITY_1.9.7.md`. Physical-device QA is still required
+before any public signed release.
