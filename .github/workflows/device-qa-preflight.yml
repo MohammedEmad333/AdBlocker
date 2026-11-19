@@ -1,0 +1,30 @@
+name: Device QA preflight self-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/device-qa-preflight.sh'
+      - 'scripts/test-device-qa-preflight.sh'
+      - '.github/workflows/device-qa-preflight.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/device-qa-preflight.sh'
+      - 'scripts/test-device-qa-preflight.sh'
+      - '.github/workflows/device-qa-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sanitized-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ADB_SERIAL: ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run offline mock-device tests
+        run: bash scripts/test-device-qa-preflight.sh
