@@ -2,7 +2,7 @@ name: Signed Release APK (manual)
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: adblocker-signed-release
   cancel-in-progress: false
@@ -49,10 +49,39 @@ jobs:
           bash scripts/ci-gradle.sh lintRelease testDebugUnitTest assembleRelease
           apk="app/build/outputs/apk/release/app-release.apk"
           test -s "$apk"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
-          (cd app/build/outputs/apk/release && sha256sum app-release.apk > SHA256SUMS)
           unzip -t "$apk" >/dev/null
-      - name: Upload signed APK and checksum
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
+
+          expected_id="$(sed -nE 's/^[[:space:]]*applicationId[[:space:]]+"([^"]+)".*/\1/p' app/build.gradle | sed -n '1p')"
+          expected_code="$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]+([0-9]+).*/\1/p' app/build.gradle | sed -n '1p')"
+          expected_name="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]+"([^"]+)".*/\1/p' app/build.gradle | sed -n '1p')"
+          package_line="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | grep '^package: ')"
+          if [[ "$package_line" != *"name='$expected_id'"* || "$package_line" != *"versionCode='$expected_code'"* || "$package_line" != *"versionName='$expected_name'"* ]]; then
+            echo "::error::Signed APK identity/version does not match app/build.gradle"
+            exit 1
+          fi
+          (cd app/build/outputs/apk/release && sha256sum app-release.apk > SHA256SUMS && sha256sum -c SHA256SUMS)
+      - name: Create draft prerelease and attach APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version_name="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]+"([^"]+)".*/\1/p' app/build.gradle | sed -n '1p')"
+          tag="v$version_name"
+          apk="app/build/outputs/apk/release/app-release.apk"
+          checksum="app/build/outputs/apk/release/SHA256SUMS"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::A GitHub Release for $tag already exists. Review it before attempting another publication."
+            exit 1
+          fi
+          gh release create "$tag" \
+            --draft \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "AdBlocker $version_name" \
+            --notes-file "docs/releases/$version_name.md" \
+            "$apk" "$checksum"
+      - name: Upload signed APK and checksum as workflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AdBlocker-signed-release
