@@ -12,6 +12,8 @@ on:
       - 'scripts/ci-gradle.sh'
       - 'scripts/test-ci-gradle.sh'
       - 'scripts/verify-debug-apk.sh'
+      - 'scripts/device-qa-preflight.sh'
+      - 'scripts/test-device-qa-preflight.sh'
   workflow_dispatch:
 
 permissions:

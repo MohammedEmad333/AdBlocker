@@ -33,6 +33,8 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
       - name: Check bounded Gradle retry policy (offline self-test)
         run: bash scripts/test-ci-gradle.sh
+      - name: Check sanitized device QA preflight (offline self-test)
+        run: bash scripts/test-device-qa-preflight.sh
       - name: Lint, unit tests and debug APK
         run: bash scripts/ci-gradle.sh lintDebug testDebugUnitTest assembleDebug
       - name: Verify APK metadata and checksum
