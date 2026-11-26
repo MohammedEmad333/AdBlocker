@@ -95,29 +95,45 @@ public final class MainActivity extends AppCompatActivity {
             if (AdBlockVpnService.protectionPauseRemainingMs() > 0) {
                 AdBlockVpnService.resumeProtection();
             } else {
-                new AlertDialog.Builder(this)
-                        .setTitle(R.string.pause_protection_title)
-                        .setMessage(R.string.pause_protection_warning)
-                        .setItems(new String[] {
-                                getString(R.string.pause_5_minutes),
-                                getString(R.string.pause_15_minutes),
-                                getString(R.string.pause_30_minutes)
-                        }, (dialog, which) -> {
-                            long[] durations = {
-                                    TimedProtectionPause.FIVE_MINUTES,
-                                    TimedProtectionPause.FIFTEEN_MINUTES,
-                                    TimedProtectionPause.THIRTY_MINUTES
-                            };
-                            AdBlockVpnService.pauseProtection(durations[which]);
-                            render();
-                        })
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show();
+                showPauseDialog();
             }
             render();
         });
         handleQuickTileIntent(getIntent(), savedInstanceState == null);
         render();
+    }
+
+    /**
+     * A message and list items cannot both occupy AlertDialog's content panel.
+     * Keep the safety explanation and all three duration actions in one view.
+     */
+    private void showPauseDialog() {
+        android.view.View content = getLayoutInflater().inflate(
+                R.layout.dialog_pause_protection, null);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.pause_protection_title)
+                .setView(content)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+
+        bindPauseChoice(content, dialog, R.id.pauseFiveMinutes,
+                TimedProtectionPause.FIVE_MINUTES);
+        bindPauseChoice(content, dialog, R.id.pauseFifteenMinutes,
+                TimedProtectionPause.FIFTEEN_MINUTES);
+        bindPauseChoice(content, dialog, R.id.pauseThirtyMinutes,
+                TimedProtectionPause.THIRTY_MINUTES);
+        dialog.show();
+    }
+
+    private void bindPauseChoice(android.view.View content, AlertDialog dialog,
+                                 int buttonId, long durationMs) {
+        content.findViewById(buttonId).setOnClickListener(view -> {
+            if (AdBlockVpnService.isRunning) {
+                AdBlockVpnService.pauseProtection(durationMs);
+            }
+            dialog.dismiss();
+            render();
+        });
     }
 
     private void toggleProtection() {

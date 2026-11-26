@@ -10,8 +10,8 @@ android {
         applicationId "com.example.adblocker"
         minSdk 26
         targetSdk 36
-        versionCode 19
-        versionName "1.9.7"
+        versionCode 20
+        versionName "1.9.8"
     }
 
     // Only sign release builds when all 4 credentials are provided via environment.

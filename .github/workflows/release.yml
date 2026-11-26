@@ -1,6 +1,12 @@
 name: Signed Release APK (manual)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/build.gradle'
+      - 'docs/releases/1.9.8.md'
+      - '.github/workflows/release.yml'
 permissions:
   contents: write
 concurrency:
